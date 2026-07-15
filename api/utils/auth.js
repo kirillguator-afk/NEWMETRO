@@ -4,9 +4,13 @@ import { kv } from '@vercel/kv';
 
 /**
  * Верификация данных Telegram Web App с защитой от Replay-атак через KV
+ * Nexus Prime: Добавлена проверка наличия Bot Token и улучшена отказоустойчивость.
  */
 export async function verifyTelegramAuth(initData, botToken) {
-    if (!initData || !botToken) return false;
+    if (!initData || !botToken) {
+        console.error("Auth Error: Missing initData or Bot Token in Environment");
+        return false;
+    }
 
     try {
         const urlParams = new URLSearchParams(initData);
@@ -14,7 +18,6 @@ export async function verifyTelegramAuth(initData, botToken) {
         if (!hash) return false;
         
         // [SECURITY] Replay Attack Protection
-        // Проверяем, не использовался ли этот хеш за последние 5 минут
         const replayKey = `replay:${hash}`;
         const isUsed = await kv.get(replayKey);
         if (isUsed) return false;
@@ -23,7 +26,7 @@ export async function verifyTelegramAuth(initData, botToken) {
 
         const authDate = parseInt(urlParams.get('auth_date'));
         const now = Math.floor(Date.now() / 1000);
-        if (!authDate || (now - authDate) > 300) {
+        if (!authDate || Math.abs(now - authDate) > 300) {
             return false;
         }
 
@@ -40,12 +43,13 @@ export async function verifyTelegramAuth(initData, botToken) {
             .digest('hex');
 
         if (hmac === hash) {
-            // Помечаем хеш как использованный на время жизни окна валидации
+            // Кэшируем хеш на 5 минут
             await kv.set(replayKey, '1', { ex: 300 });
             return true;
         }
         return false;
     } catch (e) {
+        console.error("Auth internal failure:", e);
         return false;
     }
 }

@@ -1,7 +1,7 @@
 
-<!DOCTYPE html>
-<html lang="ru">
-<head>
+
+
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>METRO CASH</title>
@@ -12,20 +12,20 @@
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
         body { font-family: 'Rajdhani', sans-serif; background: #020617; color: #e2e8f0; overflow: hidden; }
         .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .card-ui { width: 60px; height: 85px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; transition: all 0.3s ease; }
+        .card-ui { width: 55px; height: 80px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; position: relative; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
         .card-red { color: #ef4444; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .pulse-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     </style>
-</head>
-<body class="h-screen w-full flex flex-col">
+
+
 
     <input type="file" id="avatar-input" class="hidden" accept="image/png,image/jpeg,image/webp">
 
     <div id="net-overlay" class="modal hidden flex-col">
         <div class="w-8 h-8 border-2 border-emerald-500 border-t-transparent animate-spin rounded-full"></div>
-        <p class="mt-4 text-emerald-400 font-bold text-[10px] tracking-widest uppercase">Establishing Secure Channel</p>
+        <p class="mt-4 text-emerald-400 font-bold text-[10px] tracking-widest uppercase">Syncing Security Matrix</p>
     </div>
 
     <div id="view-home" class="view flex-1 flex flex-col p-5 overflow-y-auto">
@@ -35,19 +35,19 @@
             </div>
             <div class="flex-1">
                 <h2 id="ui-name" class="text-white font-bold">Guest</h2>
-                <div class="text-emerald-400 font-bold"><span id="ui-balance">1000</span> CASH</div>
+                <div class="text-emerald-400 font-bold tracking-tight"><span id="ui-balance">1000</span> CASH</div>
             </div>
         </div>
 
         <div class="flex gap-2 mb-6">
-            <button id="tab-btn-games" class="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs uppercase">Games</button>
-            <button id="tab-btn-servers" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs uppercase">Servers</button>
+            <button id="tab-btn-games" class="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-[10px] uppercase tracking-wider">Games</button>
+            <button id="tab-btn-servers" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-[10px] uppercase tracking-wider">Servers</button>
         </div>
 
         <div id="pane-games" class="space-y-3">
-            <div id="btn-create-bj" class="p-6 glass rounded-2xl border-l-4 border-emerald-500 active:scale-95 transition-all cursor-pointer">
+            <div id="btn-create-bj" class="p-6 glass rounded-2xl border-l-4 border-emerald-500 active:scale-[0.98] transition-all cursor-pointer">
                 <h3 class="font-bold text-lg">BLACKJACK</h3>
-                <p class="text-[10px] text-slate-500 uppercase">Hosted on Secure Node</p>
+                <p class="text-[9px] text-slate-500 uppercase tracking-widest">Authorized Table • Low Latency</p>
             </div>
         </div>
 
@@ -56,30 +56,32 @@
         </div>
     </div>
 
-    <div id="view-game" class="view hidden fixed inset-0 z-50 bg-[#064e3b] flex flex-col">
+    <div id="view-game" class="view hidden fixed inset-0 z-50 bg-[#020617] flex flex-col">
         <div class="p-4 flex justify-between bg-black/40 text-[10px] border-b border-white/5">
-            <span class="opacity-50">SECURE SESSION</span>
-            <span id="game-status-label" class="text-emerald-400 font-bold">SYNCED</span>
+            <span class="opacity-50">NODE_SESSION_SECURE</span>
+            <span id="game-status-label" class="text-emerald-400 font-bold">STABLE CONNECTION</span>
         </div>
         
         <div class="flex-1 flex flex-col items-center justify-center relative">
             <div id="dealer-cards" class="flex gap-2"></div>
-            <div id="dealer-score" class="mt-4 px-3 py-1 bg-black/20 rounded-full text-white text-xs font-bold"></div>
+            <div id="dealer-score" class="mt-4 px-3 py-1 bg-white/5 rounded-full text-slate-400 text-[10px] font-bold">DEALER: ?</div>
         </div>
 
-        <div class="flex-1 flex flex-col items-center justify-center relative">
+        <div class="flex-1 flex flex-col items-center justify-center relative border-t border-white/5">
             <div id="player-cards" class="flex gap-2"></div>
-            <div id="player-score" class="mt-4 px-3 py-1 bg-black/20 rounded-full text-white text-xs font-bold"></div>
+            <div id="player-score" class="mt-4 px-3 py-1 bg-emerald-500/10 rounded-full text-emerald-400 text-[10px] font-bold tracking-widest uppercase">YOU: 0</div>
             
-            <div id="game-actions" class="hidden absolute bottom-10 flex gap-6">
-                <button id="btn-hit" class="w-28 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-xl">HIT</button>
-                <button id="btn-stand" class="w-28 py-4 bg-slate-700 text-white font-black rounded-2xl shadow-xl">STAND</button>
+            <div id="game-actions" class="hidden absolute bottom-10 flex gap-4 w-full px-10">
+                <button id="btn-hit" class="flex-1 py-4 bg-emerald-600 text-white font-black rounded-xl shadow-lg active:scale-95 transition-transform text-xs">HIT</button>
+                <button id="btn-stand" class="flex-1 py-4 bg-slate-800 text-white font-black rounded-xl shadow-lg active:scale-95 transition-transform text-xs">STAND</button>
             </div>
         </div>
 
         <div id="result-overlay" class="hidden modal z-[60] flex-col text-center">
-            <h1 id="result-msg" class="text-6xl font-black mb-10 italic"></h1>
-            <button onclick="location.reload()" class="w-full max-w-xs py-4 bg-white text-black font-black rounded-2xl">CONTINUE</button>
+            <div class="glass p-10 rounded-3xl border border-white/10 w-full max-w-xs">
+                <h1 id="result-msg" class="text-5xl font-black mb-8 italic tracking-tighter"></h1>
+                <button onclick="location.reload()" class="w-full py-4 bg-white text-black font-black rounded-xl uppercase text-xs tracking-widest">Return to Base</button>
+            </div>
         </div>
     </div>
 
@@ -95,7 +97,8 @@
                 role: null, 
                 game: null,
                 lobbyId: null,
-                net: null
+                net: null,
+                activeTab: 'games'
             },
 
             async init() {
@@ -120,7 +123,7 @@
                 document.getElementById('btn-hit').onclick = () => this.gameAction('HIT');
                 document.getElementById('btn-stand').onclick = () => this.gameAction('STAND');
 
-                setInterval(() => { if(this.activeTab === 'servers') this.refreshLobbies(); }, 8000);
+                setInterval(() => { if(this.state.activeTab === 'servers') this.refreshLobbies(); }, 10000);
             },
 
             async handleAvatarUpload(e) {
@@ -141,9 +144,13 @@
             },
 
             setTab(t) {
-                this.activeTab = t;
+                this.state.activeTab = t;
                 document.getElementById('pane-games').classList.toggle('hidden', t !== 'games');
                 document.getElementById('pane-servers').classList.toggle('hidden', t !== 'servers');
+                const btnG = document.getElementById('tab-btn-games');
+                const btnS = document.getElementById('tab-btn-servers');
+                btnG.className = t === 'games' ? 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-[10px] uppercase' : 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-[10px] uppercase';
+                btnS.className = t === 'servers' ? 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-[10px] uppercase' : 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-[10px] uppercase';
                 if(t === 'servers') this.refreshLobbies();
             },
 
@@ -157,7 +164,6 @@
                     row.className = 'glass p-5 rounded-2xl flex justify-between items-center cursor-pointer active:scale-95 transition-all';
                     row.onclick = () => this.joinTable(i.id);
                     
-                    // Безопасное наполнение через элементы
                     const left = document.createElement('div');
                     left.className = 'flex items-center gap-4';
                     
@@ -219,26 +225,27 @@
 
             async syncState() {
                 const res = await MetroAPI.performAction(this.state.lobbyId, 'SYNC_REQUEST');
-                if(res) {
+                if(res && !res.error) {
                     this.state.game = res;
                     this.render();
                 }
             },
 
             async gameAction(act) {
-                const newState = await MetroAPI.performAction(this.state.lobbyId, act);
+                const currentTurn = this.state.game?.turnCount || 1;
+                const newState = await MetroAPI.performAction(this.state.lobbyId, act, currentTurn);
+                
                 if(newState.error) {
                     tg.showAlert(newState.error);
+                    if(newState.error.includes('Syncing')) this.syncState();
                     return;
                 }
                 this.state.game = newState;
-                // Уведомляем клиента по P2P об изменении
                 this.state.net.send('UPDATE_SIGNAL');
                 this.render();
             },
 
             onNetMsg(msg) {
-                // P2P используется только как триггер, данные тянутся из API (Authority)
                 if(msg.type === 'UPDATE_SIGNAL') {
                     this.syncState();
                 }
@@ -253,11 +260,13 @@
 
                 document.getElementById('player-cards').innerHTML = g.playerHand.map(c => this.cardTpl(c)).join('');
                 document.getElementById('dealer-cards').innerHTML = g.dealerHand.map((c, i) => 
-                    (i === 0 && !showFullDealer) ? `<div class="card-ui bg-slate-800"></div>` : this.cardTpl(c)
+                    (i === 0 && !showFullDealer) ? `<div class="card-ui bg-slate-900 border border-white/5"><div class="w-full h-full opacity-10 bg-gradient-to-br from-white to-transparent rounded-lg"></div></div>` : this.cardTpl(c)
                 ).join('');
 
-                document.getElementById('player-score').textContent = this.calcScore(g.playerHand);
-                document.getElementById('dealer-score').textContent = showFullDealer ? this.calcScore(g.dealerHand) : '?';
+                // [DRY FIX] Используем очки с сервера
+                document.getElementById('player-score').textContent = `YOU: ${g.playerScore}`;
+                document.getElementById('dealer-score').textContent = `DEALER: ${g.dealerScore}`;
+                
                 document.getElementById('game-actions').classList.toggle('hidden', g.status !== 'PLAYER_TURN');
                 
                 if(isEnd) {
@@ -265,32 +274,23 @@
                 }
             },
 
-            calcScore(hand) {
-                let s = 0, a = 0;
-                hand.forEach(c => {
-                    if(c.value === 'A') { a++; s += 11; }
-                    else if(['J','Q','K'].includes(c.value)) s += 10;
-                    else s += parseInt(c.value);
-                });
-                while(s > 21 && a > 0) { s -= 10; a--; }
-                return s;
-            },
-
             cardTpl(c) {
                 const isRed = ['♥', '♦'].includes(c.suit);
                 return `<div class="card-ui ${isRed?'card-red':''}">
-                    <span class="text-[10px] self-start ml-1 mt-1">${c.value}</span>
+                    <span class="text-[9px] absolute top-1 left-1.5 font-black">${c.value}</span>
                     <span class="text-2xl my-auto">${c.suit}</span>
                 </div>`;
             },
 
             showResult() {
-                const p = this.calcScore(this.state.game.playerHand);
-                const d = this.calcScore(this.state.game.dealerHand);
-                let res = (p > 21) ? "BUSTED" : (d > 21 || p > d) ? "WINNER" : (p === d) ? "PUSH" : "DEALER WINS";
+                const g = this.state.game;
+                const p = g.playerScore;
+                const d = typeof g.dealerScore === 'number' ? g.dealerScore : 0;
+                
+                let res = (p > 21) ? "BUSTED" : (d > 21 || p > d) ? "WINNER" : (p === d) ? "PUSH" : "LOSE";
                 const msg = document.getElementById('result-msg');
                 msg.textContent = res;
-                msg.className = `text-6xl font-black mb-10 italic ${res==='WINNER'?'text-emerald-500':'text-red-500'}`;
+                msg.className = `text-5xl font-black mb-8 italic tracking-tighter ${res === 'WINNER' ? 'text-emerald-500' : 'text-red-500'}`;
                 document.getElementById('result-overlay').classList.remove('hidden');
             },
 
@@ -302,5 +302,5 @@
 
         window.onload = () => App.init();
     </script>
-</body>
-</html>
+
+

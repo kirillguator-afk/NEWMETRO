@@ -6,7 +6,9 @@ export default async function handler(req, res) {
     const initData = req.headers['x-telegram-init-data'];
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
-    if (!verifyTelegramAuth(initData, botToken)) {
+    // [CRITICAL FIX] Added await to ensure verification Promise is resolved
+    const isAuthenticated = await verifyTelegramAuth(initData, botToken);
+    if (!isAuthenticated) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 

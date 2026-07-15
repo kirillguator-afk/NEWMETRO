@@ -1,13 +1,13 @@
 
-<!DOCTYPE html>
-<html lang="ru">
-<head>
+
+
+
     <meta charset="UTF-8">
     <title>METRO ADMIN</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-950 text-white p-6 font-sans">
+
+
     <h1 class="text-2xl font-black text-emerald-500 mb-10 tracking-tighter">METRO_OPS</h1>
     <div id="admin-content" class="hidden">
         <div id="list" class="space-y-4">Fetching secure data...</div>
@@ -44,27 +44,38 @@
                 const card = document.createElement('div');
                 card.className = 'p-6 bg-slate-900 border border-white/5 rounded-2xl';
                 
-                // [SECURITY] Используем textContent для предотвращения XSS
                 const header = document.createElement('div');
-                header.className = 'flex justify-between';
-                header.innerHTML = `<span class="text-[10px] font-black ${r.payType==='DEPOSIT'?'text-emerald-400':'text-orange-400'}">${r.payType}</span>`;
+                header.className = 'flex justify-between items-center';
+                
+                // [SECURITY FIX] Safe status badge
+                const status = document.createElement('span');
+                status.className = `text-[10px] font-black px-2 py-0.5 rounded ${r.payType === 'DEPOSIT' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-orange-500/10 text-orange-400'}`;
+                status.textContent = r.payType;
                 
                 const amt = document.createElement('span');
                 amt.className = 'font-bold text-lg';
                 amt.textContent = `${parseInt(r.amount)} CASH`;
+
+                header.appendChild(status);
                 header.appendChild(amt);
 
                 const info = document.createElement('div');
-                info.className = 'text-[10px] text-slate-500 mt-3 font-mono';
+                info.className = 'text-[10px] text-slate-500 mt-3 font-mono space-y-1';
                 
                 const userLine = document.createElement('div');
-                userLine.textContent = `USER: ${r.user} (${r.id})`;
+                userLine.textContent = `USER ID: ${r.id}`;
                 
+                const txLine = document.createElement('div');
+                txLine.textContent = `TX: ${r.txId}`;
+
                 const dataLine = document.createElement('div');
-                dataLine.textContent = `INFO: ${r.info}`;
+                dataLine.className = 'text-slate-400 italic';
+                dataLine.textContent = `INFO: ${r.info || 'N/A'}`;
 
                 info.appendChild(userLine);
+                info.appendChild(txLine);
                 info.appendChild(dataLine);
+
                 card.appendChild(header);
                 card.appendChild(info);
                 listEl.appendChild(card);
@@ -72,5 +83,5 @@
         }
         init();
     </script>
-</body>
-</html>
+
+

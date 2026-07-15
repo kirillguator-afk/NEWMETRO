@@ -1,6 +1,9 @@
 
+import crypto from 'crypto';
+
 /**
  * Server-Side Game Logic (Source of Truth)
+ * Nexus Prime: Enhanced with Cryptographic RNG
  */
 export const BlackjackEngine = {
     createDeck() {
@@ -9,9 +12,10 @@ export const BlackjackEngine = {
         let deck = [];
         suits.forEach(s => values.forEach(v => deck.push({ suit: s, value: v })));
         
-        // Fisher-Yates Shuffle
+        // [SECURITY] Fisher-Yates Shuffle with Cryptographically Secure RNG
         for (let i = deck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            // crypto.randomInt is much more secure than Math.random() for gambling logic
+            const j = crypto.randomInt(0, i + 1);
             [deck[i], deck[j]] = [deck[j], deck[i]];
         }
         return deck;
