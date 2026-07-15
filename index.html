@@ -17,18 +17,17 @@
         .nav-item { transition: all 0.3s; opacity: 0.4; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
         .nav-item.active { opacity: 1; color: var(--accent); transform: translateY(-2px); }
         .card-ui { width: 42px; height: 60px; background: #fff; border-radius: 6px; color: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .card-red { color: #ef4444; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .view-content { height: calc(100vh - 150px); overflow-y: auto; padding: 20px; }
-        #view-game { position: fixed; inset: 0; z-index: 500; background: #020617; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); transform: translateY(100%); pointer-events: none; }
+        #view-game { position: fixed; inset: 0; z-index: 500; background: #020617; transition: transform 0.4s ease; transform: translateY(100%); pointer-events: none; }
         #view-game.active { transform: translateY(0); pointer-events: all; }
     </style>
 </head>
 <body class="flex flex-col">
 
     <div id="boot-overlay" class="modal flex flex-col">
-        <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent animate-spin rounded-full mb-6"></div>
-        <div class="font-cyber text-[10px] tracking-widest text-emerald-400 animate-pulse">INITIALIZING METRO NODE...</div>
+        <div id="boot-spinner" class="w-12 h-12 border-4 border-emerald-500 border-t-transparent animate-spin rounded-full mb-6"></div>
+        <div id="boot-text" class="font-cyber text-[10px] tracking-widest text-emerald-400 animate-pulse text-center">INITIALIZING METRO NODE...</div>
     </div>
 
     <div class="p-5 flex justify-between items-center z-10">
@@ -46,15 +45,8 @@
                 <button id="btn-create-bj" class="w-full py-4 bg-emerald-600 text-white font-cyber text-[10px] rounded-xl">HOST NEW NODE</button>
             </div>
         </div>
-
-        <div id="view-servers" class="view-content hidden">
-            <div id="server-list" class="space-y-4"></div>
-        </div>
-
-        <div id="view-rank" class="view-content hidden">
-            <div id="leaderboard-list" class="space-y-2"></div>
-        </div>
-
+        <div id="view-servers" class="view-content hidden"><div id="server-list" class="space-y-4"></div></div>
+        <div id="view-rank" class="view-content hidden"><div id="leaderboard-list" class="space-y-2"></div></div>
         <div id="view-profile" class="view-content hidden">
             <div class="flex flex-col items-center gap-4 mb-8">
                 <div id="profile-avatar" class="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center font-black text-2xl">?</div>
@@ -88,10 +80,6 @@
                     <button id="btn-stand" class="flex-1 py-5 bg-slate-800 rounded-xl font-cyber text-[10px]">STAND</button>
                 </div>
             </div>
-            <div id="result-overlay" class="hidden absolute inset-0 glass z-[600] flex flex-col items-center justify-center p-10 text-center">
-                <div id="result-title" class="font-cyber text-4xl mb-8 italic"></div>
-                <button onclick="location.reload()" class="w-full py-4 bg-white text-black font-cyber text-[10px] rounded-xl font-bold">CONFIRM</button>
-            </div>
         </div>
     </div>
 
@@ -113,40 +101,44 @@
 
             async init() {
                 tg.ready(); tg.expand();
-                tg.headerColor = '#020617';
                 
-                // Проверка на запуск вне Telegram
+                // 1. Проверка на среду Telegram
                 if(!tg.initData) {
-                    document.getElementById('boot-overlay').innerHTML = `<div class="text-center p-10 font-cyber text-rose-500">NODE ACCESS DENIED<br><span class="text-[10px] text-white opacity-50">PLEASE OPEN VIA TELEGRAM BOT</span></div>`;
+                    this.showError("NODE ACCESS DENIED", "PLEASE OPEN VIA TELEGRAM BOT");
                     return;
                 }
 
                 try {
+                    // 2. Получение профиля (ждем до 5 сек)
                     const data = await MetroAPI.getProfile();
-                    if(!data) throw new Error("AUTH_FAIL");
-                    
                     this.state.user = data;
                     this.updateUIProfile(data);
                     
-                    this.state.net = new MetroNetwork(
-                        this.state.user.id, 
-                        (d) => this.onNetMsg(d), 
-                        () => this.onPeerReady()
-                    );
+                    // 3. Сеть
+                    this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
                     
                     document.getElementById('boot-overlay').classList.add('hidden');
                     this.setupListeners();
                 } catch (e) {
-                    tg.showAlert("Matrix Sync Failed: " + e.message);
+                    console.error(e);
+                    if (e.message === "UNAUTHORIZED") {
+                        this.showError("IDENTITY VERIFICATION FAILED", "RESTART BOT OR CHECK TOKEN");
+                    } else {
+                        this.showError("MATRIX SYNC FAILED", e.message.toUpperCase());
+                    }
                 }
+            },
+
+            showError(title, subtitle) {
+                document.getElementById('boot-spinner').classList.add('hidden');
+                document.getElementById('boot-text').innerHTML = `<span class="text-rose-500 font-bold">${title}</span><br><span class="text-[8px] text-white opacity-50">${subtitle}</span>`;
             },
 
             updateUIProfile(data) {
                 document.getElementById('top-balance').textContent = data.balance.toLocaleString();
                 document.getElementById('profile-name').textContent = data.name;
                 if(data.avatarUrl) {
-                    const box = document.getElementById('profile-avatar');
-                    box.innerHTML = `<img src="${data.avatarUrl}" class="w-full h-full object-cover">`;
+                    document.getElementById('profile-avatar').innerHTML = `<img src="${data.avatarUrl}" class="w-full h-full object-cover rounded-full">`;
                 }
             },
 
@@ -168,40 +160,45 @@
             },
 
             async refreshLobbies() {
-                const labs = await MetroAPI.getLobbies();
-                const frag = document.createDocumentFragment();
-                labs.forEach(l => {
-                    const row = document.createElement('div');
-                    row.className = 'glass p-6 rounded-3xl flex justify-between items-center active:scale-95 transition-all';
-                    row.innerHTML = `<div><div class="font-bold text-sm">${this.esc(l.user)}</div><div class="text-[8px] text-slate-500">UPLINK READY</div></div><div class="text-emerald-500 font-black">${l.bet} C</div>`;
-                    row.onclick = () => this.joinTable(l.id);
-                    frag.appendChild(row);
-                });
-                document.getElementById('server-list').replaceChildren(frag);
+                try {
+                    const labs = await MetroAPI.getLobbies();
+                    const frag = document.createDocumentFragment();
+                    labs.forEach(l => {
+                        const row = document.createElement('div');
+                        row.className = 'glass p-6 rounded-3xl flex justify-between items-center active:scale-95 transition-all';
+                        row.innerHTML = `<div><div class="font-bold text-sm">${this.esc(l.user)}</div><div class="text-[8px] text-slate-500 uppercase">Uplink Ready</div></div><div class="text-emerald-500 font-black">${l.bet} C</div>`;
+                        row.onclick = () => this.joinTable(l.id);
+                        frag.appendChild(row);
+                    });
+                    document.getElementById('server-list').replaceChildren(frag);
+                } catch(e) {}
             },
 
             async loadLeaderboard() {
-                const users = await MetroAPI.getLeaderboard();
-                const frag = document.createDocumentFragment();
-                users.forEach((u, i) => {
-                    const row = document.createElement('div');
-                    row.className = 'glass p-4 rounded-xl flex justify-between items-center';
-                    row.innerHTML = `<div class="flex items-center gap-3"><span class="text-[8px] opacity-30">#${i+1}</span><span class="font-bold text-xs">${this.esc(u.name)}</span></div><div class="text-emerald-400 font-black text-xs">${u.wins} WINS</div>`;
-                    frag.appendChild(row);
-                });
-                document.getElementById('leaderboard-list').replaceChildren(frag);
+                try {
+                    const users = await MetroAPI.getLeaderboard();
+                    const frag = document.createDocumentFragment();
+                    users.forEach((u, i) => {
+                        const row = document.createElement('div');
+                        row.className = 'glass p-4 rounded-xl flex justify-between items-center';
+                        row.innerHTML = `<div class="flex items-center gap-3"><span class="text-[8px] opacity-30">#${i+1}</span><span class="font-bold text-xs">${this.esc(u.name)}</span></div><div class="text-emerald-400 font-black text-xs">${u.wins} W</div>`;
+                        frag.appendChild(row);
+                    });
+                    document.getElementById('leaderboard-list').replaceChildren(frag);
+                } catch(e) {}
             },
 
             async openCreateLobby() {
                 const b = prompt("Stake Amount (min 10):", "100"); 
                 if(!b || parseInt(b) < 10) return;
                 this.state.lobbyId = this.state.net.peerId;
-                const game = await MetroAPI.startGame(this.state.lobbyId, b);
-                if (game.error) return tg.showAlert(game.error);
-                this.state.game = game;
-                this.toggleGameView(true);
-                this.render();
-                await MetroAPI.publishLobby(b, this.state.net.peerId);
+                try {
+                    const game = await MetroAPI.startGame(this.state.lobbyId, b);
+                    this.state.game = game;
+                    this.toggleGameView(true);
+                    this.render();
+                    await MetroAPI.publishLobby(b, this.state.net.peerId);
+                } catch (e) { tg.showAlert(e.message); }
             },
 
             async joinTable(id) {
@@ -213,12 +210,13 @@
             async onPeerReady() {
                 document.getElementById('boot-overlay').classList.add('hidden');
                 if (this.state.lobbyId && !this.state.game) {
-                    const game = await MetroAPI.joinGame(this.state.lobbyId);
-                    if (game.error) return tg.showAlert(game.error);
-                    this.state.game = game;
-                    this.state.net.send('UPDATE_SIGNAL');
-                    this.toggleGameView(true);
-                    this.render();
+                    try {
+                        const game = await MetroAPI.joinGame(this.state.lobbyId);
+                        this.state.game = game;
+                        this.state.net.send('UPDATE_SIGNAL');
+                        this.toggleGameView(true);
+                        this.render();
+                    } catch (e) { tg.showAlert(e.message); }
                 }
             },
 
@@ -230,16 +228,22 @@
 
             onNetMsg(m) { if(m.type === 'UPDATE_SIGNAL') this.sync(); },
             async sync() {
-                const r = await MetroAPI.performAction(this.state.lobbyId, 'SYNC_REQUEST');
-                if(!r.error) { this.state.game = r; this.render(); }
+                try {
+                    const r = await MetroAPI.performAction(this.state.lobbyId, 'SYNC_REQUEST');
+                    this.state.game = r; 
+                    this.render();
+                } catch (e) {}
             },
 
             async gameAction(act) {
                 if (this.state.isProcessing) return;
                 this.state.isProcessing = true;
-                const res = await MetroAPI.performAction(this.state.lobbyId, act, this.state.game.turnCount);
-                if (res.error) tg.showAlert(res.error);
-                else { this.state.game = res; this.state.net.send('UPDATE_SIGNAL'); this.render(); }
+                try {
+                    const res = await MetroAPI.performAction(this.state.lobbyId, act, this.state.game.turnCount);
+                    this.state.game = res;
+                    this.state.net.send('UPDATE_SIGNAL');
+                    this.render();
+                } catch (e) { tg.showAlert(e.message); }
                 this.state.isProcessing = false;
             },
 
@@ -251,17 +255,17 @@
                 const showD = g.status === 'END' || g.status === 'DEALER_TURN';
                 this.drawCards('dealer-hand', 'dealer-score', g.dealerHand, g.dealerScore, !showD);
                 
-                const me = g.myRole;
-                const myTurn = (me === 'host' && g.status === 'HOST_TURN') || (me === 'guest' && g.status === 'GUEST_TURN');
+                const myTurn = (g.myRole === 'host' && g.status === 'HOST_TURN') || (g.myRole === 'guest' && g.status === 'GUEST_TURN');
                 document.getElementById('game-actions').style.opacity = myTurn ? '1' : '0.2';
                 
                 if (g.status === 'END') {
-                    const myS = me === 'host' ? g.hostScore : g.guestScore;
+                    const myS = g.myRole === 'host' ? g.hostScore : g.guestScore;
                     const dS = typeof g.dealerScore === 'number' ? g.dealerScore : 0;
                     let res = (myS > 21) ? "BUSTED" : (dS > 21 || myS > dS) ? "WINNER" : (myS === dS) ? "PUSH" : "LOSE";
                     document.getElementById('result-title').textContent = res;
                     document.getElementById('result-title').className = `font-cyber text-4xl mb-8 italic ${res === 'WINNER' ? 'text-emerald-500' : 'text-rose-500'}`;
                     document.getElementById('result-overlay').classList.remove('hidden');
+                    MetroAPI.getProfile().then(d => this.updateUIProfile(d));
                 }
             },
 

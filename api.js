@@ -1,7 +1,6 @@
 
 /**
- * Metro API Client
- * Абсолютные пути заменены на относительные для совместимости с любым хостингом
+ * Metro API Client with Error Propagation
  */
 const getAuthHeaders = () => ({
     'x-telegram-init-data': window.Telegram?.WebApp?.initData || '',
@@ -10,14 +9,10 @@ const getAuthHeaders = () => ({
 
 export const MetroAPI = {
     async getProfile() {
-        try {
-            const res = await fetch('./api/profile/data', { headers: getAuthHeaders() });
-            if (!res.ok) throw new Error(res.statusText);
-            return await res.json();
-        } catch (e) {
-            console.error("Profile API Error:", e);
-            return null;
-        }
+        const res = await fetch('./api/profile/data', { headers: getAuthHeaders() });
+        if (res.status === 401) throw new Error("UNAUTHORIZED");
+        if (!res.ok) throw new Error("SERVER_ERROR_" + res.status);
+        return await res.json();
     },
 
     async getLobbies() {
@@ -28,46 +23,44 @@ export const MetroAPI = {
     },
 
     async publishLobby(bet, peerId) {
-        try {
-            await fetch('./api/lobbies', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ id: peerId, bet: parseInt(bet) })
-            });
-        } catch (e) {}
+        await fetch('./api/lobbies', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ id: peerId, bet: parseInt(bet) })
+        });
     },
 
     async startGame(lobbyId, bet) {
-        try {
-            const res = await fetch('./api/game/action', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ action: 'START', lobbyId, bet })
-            });
-            return await res.json();
-        } catch (e) { return { error: 'Start failed' }; }
+        const res = await fetch('./api/game/action', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ action: 'START', lobbyId, bet })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "FAILED_TO_START");
+        return data;
     },
 
     async joinGame(lobbyId) {
-        try {
-            const res = await fetch('./api/game/action', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ action: 'JOIN', lobbyId })
-            });
-            return await res.json();
-        } catch (e) { return { error: 'Join failed' }; }
+        const res = await fetch('./api/game/action', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ action: 'JOIN', lobbyId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "FAILED_TO_JOIN");
+        return data;
     },
 
     async performAction(lobbyId, action, turn) {
-        try {
-            const res = await fetch('./api/game/action', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ action, lobbyId, expectedTurn: turn })
-            });
-            return await res.json();
-        } catch (e) { return { error: 'Network Error' }; }
+        const res = await fetch('./api/game/action', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ action, lobbyId, expectedTurn: turn })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "ACTION_ERROR");
+        return data;
     },
 
     async getLeaderboard() {
