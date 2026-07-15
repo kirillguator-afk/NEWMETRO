@@ -1,7 +1,6 @@
 
 export class MetroNetwork {
     constructor(userId, onMessage, onConnect) {
-        // [SECURITY] Добавляем энтропию в ID, чтобы избежать DoS и перехвата
         const entropy = Math.random().toString(36).slice(2, 8);
         this.peerId = `metro_${userId}_${entropy}`;
         
@@ -20,9 +19,10 @@ export class MetroNetwork {
         this.onConnect = onConnect;
 
         this.peer.on('connection', (conn) => {
-            if (this.conn) {
+            // Если соединение уже есть, корректно закрываем новое
+            if (this.conn && this.conn.open) {
                 conn.on('open', () => {
-                    conn.send({ type: 'ERROR', msg: 'Table busy' });
+                    conn.send({ type: 'ERROR', msg: 'Table occupied' });
                     setTimeout(() => conn.close(), 500);
                 });
                 return;
@@ -32,14 +32,15 @@ export class MetroNetwork {
         });
         
         this.peer.on('error', (err) => {
+            console.error("PeerJS Error:", err.type);
             if (err.type === 'peer-unavailable') {
-                console.error("Target peer not found");
+                window.Telegram?.WebApp?.showAlert("Player node offline.");
             }
         });
     }
 
     connectTo(targetId) {
-        // Ожидаем префикс metro_, но само подключение идет по точному ID
+        if (this.conn) this.conn.close();
         this.conn = this.peer.connect(targetId, { reliable: true });
         this.setupListeners();
     }
@@ -54,7 +55,8 @@ export class MetroNetwork {
         });
 
         this.conn.on('close', () => {
-            console.warn("P2P Connection Closed");
+            this.conn = null;
+            console.warn("P2P Link Severed");
         });
     }
 

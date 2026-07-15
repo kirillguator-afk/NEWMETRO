@@ -4,8 +4,11 @@ import { kv } from '@vercel/kv';
 import crypto from 'crypto';
 import { verifyTelegramAuth, getUserData } from '../utils/auth.js';
 
+/**
+ * Nexus Prime: bodyParser must be DISABLED for direct streaming to Vercel Blob.
+ */
 export const config = {
-    api: { bodyParser: true }, // Используем bodyParser для возможности чтения заголовка файла
+    api: { bodyParser: false },
 };
 
 export default async function handler(req, res) {
@@ -19,15 +22,10 @@ export default async function handler(req, res) {
     const tgUser = getUserData(initData);
 
     if (req.method === 'POST') {
-        // [SECURITY] Проверка Magic Bytes (базовая проверка заголовка WEBP/PNG/JPG)
-        // Для этого нам нужно тело как Buffer (vercel конвертирует body в строку или JSON)
-        // В Node.js среде Vercel, если bodyParser включен, body — это объект или строка.
-        // Для строгой проверки лучше стримить, но здесь добавим проверку типа из Content-Type 
-        // и ограничим размер.
-        
         const contentType = req.headers['content-type'] || '';
+        // Поддерживаем основные форматы изображений
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) {
-            return res.status(400).json({ error: 'Invalid image format. WEBP/PNG/JPG only.' });
+            return res.status(400).json({ error: 'Invalid format. Use WEBP, PNG or JPG.' });
         }
 
         const contentLength = parseInt(req.headers['content-length'] || '0');
@@ -36,14 +34,15 @@ export default async function handler(req, res) {
         }
 
         const fileId = crypto.randomBytes(8).toString('hex');
-        const filename = `avatars/${tgUser.id}/${fileId}.webp`;
+        // Сохраняем расширение из content-type
+        const ext = contentType.split('/')[1] || 'webp';
+        const filename = `avatars/${tgUser.id}/${fileId}.${ext}`;
 
         try {
-            // Пересылаем тело напрямую в Blob
-            // Примечание: req в Vercel является ReadableStream
+            // [STREAMING] Передаем req напрямую как ReadableStream
             const blob = await put(filename, req, {
                 access: 'public',
-                contentType: 'image/webp',
+                contentType: contentType,
             });
 
             await kv.set(`user:${tgUser.id}:profile`, {
@@ -53,8 +52,8 @@ export default async function handler(req, res) {
 
             return res.status(200).json(blob);
         } catch (error) {
-            console.error(error);
-            return res.status(500).json({ error: 'Internal Error' });
+            console.error("Blob upload error:", error);
+            return res.status(500).json({ error: 'Internal Storage Error' });
         }
     }
 
