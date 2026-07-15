@@ -17,9 +17,8 @@ export const MetroAPI = {
 
     async getUpdates() {
         try {
-            // Запрашиваем последние 100 обновлений. 
-            // В продакшене лучше использовать сервер-посредник, но для P2P WebApp это стандартное решение.
-            const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?limit=100&allowed_updates=["channel_post","message"]`);
+            // Используем offset -100 чтобы всегда получать последние 100 сообщений
+            const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-100&limit=100&allowed_updates=["channel_post","message"]`);
             const data = await response.json();
             return data.ok ? data.result : [];
         } catch (e) { 
@@ -32,17 +31,21 @@ export const MetroAPI = {
         if (!text || !text.includes('#METRO_LOBBY')) return null;
         
         const now = Math.floor(Date.now() / 1000);
-        // Лобби валидно 2 минуты (120 секунд)
-        if (now - date > 120) return null; 
+        // Увеличиваем срок жизни до 300 секунд (5 минут) для стабильности
+        if (now - date > 300) return null; 
 
         try {
-            const parts = text.split('|');
+            // Очищаем текст от HTML тегов, которые может добавить Telegram
+            const cleanText = text.replace(/<[^>]*>/g, '');
+            const parts = cleanText.split('|');
             const data = {};
+            
             parts.forEach(p => {
-                const [key, val] = p.split(':');
-                if (key && val) {
-                    const cleanKey = key.replace('#METRO_LOBBY', '').replace('|', '').trim();
-                    data[cleanKey] = val.trim();
+                const kv = p.split(':');
+                if (kv.length >= 2) {
+                    const key = kv[0].replace('#METRO_LOBBY', '').trim();
+                    const val = kv.slice(1).join(':').trim(); // Собираем остаток (для ID с двоеточиями)
+                    data[key] = val;
                 }
             });
             
@@ -55,12 +58,13 @@ export const MetroAPI = {
                 timestamp: date 
             };
         } catch (e) {
+            console.error("Parse error:", e);
             return null;
         }
     },
 
     parsePayment(text) {
-        if (!text || !text.startsWith('#PAY_REQ')) return null;
+        if (!text || !text.includes('#PAY_REQ')) return null;
         const parts = text.split('|');
         const data = {};
         parts.forEach(p => {

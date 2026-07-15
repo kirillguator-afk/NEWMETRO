@@ -21,16 +21,20 @@
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
         .system-badge { background: linear-gradient(90deg, #059669, #10b981); color: white; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; }
         .p2p-badge { background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; }
-        .loader { width: 48px; height: 48px; border: 3px solid #FFF; border-bottom-color: #10b981; border-radius: 50%; display: inline-block; box-sizing: border-box; animation: rotation 1s linear infinite; }
+        .loader { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-bottom-color: #10b981; border-radius: 50%; display: inline-block; box-sizing: border-box; animation: rotation 1s linear infinite; }
         @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .subtab-btn { position: relative; padding: 8px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; transition: all 0.3s; }
+        .subtab-btn.active { color: #10b981; }
+        .subtab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 20px; height: 2px; background: #10b981; border-radius: 2px; }
     </style>
 </head>
 <body class="h-screen w-full flex flex-col">
 
     <!-- VIEW: CONNECTING OVERLAY -->
     <div id="net-overlay" class="modal hidden flex-col">
-        <span class="loader"></span>
-        <p class="mt-4 text-emerald-400 font-bold tracking-widest text-sm">ESTABLISHING P2P SIGNAL...</p>
+        <div class="loader"></div>
+        <p class="mt-4 text-emerald-400 font-bold tracking-widest text-[10px]">ESTABLISHING P2P SIGNAL...</p>
     </div>
 
     <!-- MODAL: PAYMENT -->
@@ -78,10 +82,19 @@
             </div>
         </div>
 
-        <div id="pane-servers" class="hidden space-y-3">
-            <div id="server-list" class="space-y-3">
+        <div id="pane-servers" class="hidden flex flex-col h-full">
+            <div class="flex items-center justify-between mb-4 border-b border-white/5">
+                <div class="flex">
+                    <button onclick="App.setServerSubTab('official')" id="subtab-official" class="subtab-btn active">Official</button>
+                    <button onclick="App.setServerSubTab('user')" id="subtab-user" class="subtab-btn">User Tables</button>
+                </div>
+                <button onclick="App.refreshLobbies(true)" id="refresh-btn" class="p-2 text-emerald-500 active:rotate-180 transition-transform">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </button>
+            </div>
+            
+            <div id="server-list" class="space-y-3 pb-20">
                 <!-- Lobbies injected here -->
-                <div class="py-10 text-center opacity-30 text-xs italic tracking-widest">INITIALIZING SCAN...</div>
             </div>
         </div>
 
@@ -142,7 +155,8 @@
                 user: { id: 0, name: 'Guest', balance: 1000 },
                 role: null, 
                 game: { deck: [], dealerHand: [], playerHand: [], status: 'WAITING', bet: 100 },
-                net: null, heartbeat: null, activeTab: 'games'
+                net: null, heartbeat: null, activeTab: 'games',
+                serverSubTab: 'official'
             },
 
             init() {
@@ -159,7 +173,7 @@
                 
                 setInterval(() => {
                     if(this.state.activeTab === 'servers') this.refreshLobbies();
-                }, 8000);
+                }, 10000);
             },
 
             setTab(t) {
@@ -178,36 +192,53 @@
                 }
             },
 
-            async refreshLobbies() {
-                const list = document.getElementById('server-list');
-                const updates = await MetroAPI.getUpdates();
-                
-                // Дедупликация: Храним только самое свежее сообщение для каждого ID хоста
-                const dynamicLobbies = new Map();
-                
-                updates.forEach(u => {
-                    const msg = u.channel_post || u.message;
-                    if(!msg) return;
-                    
-                    const lobby = MetroAPI.parseLobby(msg.text, msg.date);
-                    // Фильтруем пустые лобби и лобби самого пользователя
-                    if(lobby && lobby.id !== `metro_${this.state.user.id}`) {
-                        const existing = dynamicLobbies.get(lobby.id);
-                        if(!existing || lobby.timestamp > existing.timestamp) {
-                            dynamicLobbies.set(lobby.id, lobby);
-                        }
-                    }
-                });
+            setServerSubTab(st) {
+                this.state.serverSubTab = st;
+                document.getElementById('subtab-official').classList.toggle('active', st === 'official');
+                document.getElementById('subtab-user').classList.toggle('active', st === 'user');
+                this.refreshLobbies();
+            },
 
-                // Объединяем системные сервера и сервера игроков
-                const allLobbies = [...DEFAULT_SERVERS, ...Array.from(dynamicLobbies.values())];
+            async refreshLobbies(isManual = false) {
+                const list = document.getElementById('server-list');
+                const refreshBtn = document.getElementById('refresh-btn');
                 
-                if(allLobbies.length === 0) {
-                    list.innerHTML = '<div class="py-10 text-center opacity-30 text-xs italic tracking-widest">NO SIGNALS DETECTED</div>';
+                if (isManual) {
+                    refreshBtn.classList.add('animate-spin');
+                    tg.HapticFeedback.impactOccurred('light');
+                }
+
+                let lobbiesToShow = [];
+
+                if (this.state.serverSubTab === 'official') {
+                    lobbiesToShow = DEFAULT_SERVERS;
+                } else {
+                    const updates = await MetroAPI.getUpdates();
+                    const dynamicLobbies = new Map();
+                    
+                    updates.forEach(u => {
+                        const msg = u.channel_post || u.message;
+                        if(!msg) return;
+                        
+                        const lobby = MetroAPI.parseLobby(msg.text, msg.date);
+                        if(lobby && lobby.id !== `metro_${this.state.user.id}`) {
+                            const existing = dynamicLobbies.get(lobby.id);
+                            if(!existing || lobby.timestamp > existing.timestamp) {
+                                dynamicLobbies.set(lobby.id, lobby);
+                            }
+                        }
+                    });
+                    lobbiesToShow = Array.from(dynamicLobbies.values());
+                }
+
+                if(isManual) setTimeout(() => refreshBtn.classList.remove('animate-spin'), 600);
+
+                if(lobbiesToShow.length === 0) {
+                    list.innerHTML = `<div class="py-20 text-center opacity-30 text-xs italic tracking-widest">NO ${this.state.serverSubTab.toUpperCase()} SIGNALS</div>`;
                     return;
                 }
 
-                list.innerHTML = allLobbies.map(i => `
+                list.innerHTML = lobbiesToShow.map(i => `
                     <div onclick="App.joinTable('${i.id}', ${i.bet}, ${!!i.isSystem})" class="server-entry glass p-5 rounded-2xl flex justify-between items-center border border-transparent active:scale-95 cursor-pointer">
                         <div class="flex items-center gap-4">
                             <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-emerald-500 font-bold border border-emerald-500/20">
@@ -258,7 +289,6 @@
                 
                 const publish = () => {
                     if(this.state.role !== 'host') return;
-                    // Публикуем сообщение в канал
                     const text = `#METRO_LOBBY|ID:metro_${this.state.user.id}|USER:${this.state.user.name}|BET:${this.state.game.bet}`;
                     MetroAPI.sendMessage(CHANNEL_ID, text);
                 };
