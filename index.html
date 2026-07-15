@@ -4,256 +4,278 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>METRO CASH - Underground Casino</title>
+    <title>METRO CASH</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
-        :root { --neon-green: #10b981; --bg-dark: #020617; }
-        body { font-family: 'Rajdhani', sans-serif; background-color: var(--bg-dark); color: #e2e8f0; overflow: hidden; }
+        body { font-family: 'Rajdhani', sans-serif; background-color: #020617; color: #e2e8f0; overflow: hidden; }
         .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .server-card { background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%); border-left: 4px solid var(--neon-green); }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .card-ui { width: 60px; height: 85px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .card-red { color: #ef4444; }
+        .btn-action { transition: all 0.2s; border-bottom: 3px solid rgba(0,0,0,0.3); }
+        .btn-action:active { transform: translateY(2px); border-bottom-width: 0; }
     </style>
 </head>
-<body class="h-screen w-full flex flex-col relative">
-
-    <!-- MODAL: DEPOSIT -->
-    <div id="modal-payment" class="modal hidden">
-        <div class="glass w-full max-w-sm p-6 rounded-2xl">
-            <h3 id="modal-title" class="text-xl font-bold mb-4 uppercase text-emerald-400">Deposit</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="text-[10px] text-slate-500 uppercase">Amount (CASH)</label>
-                    <input id="payment-amount" type="number" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-emerald-500">
-                </div>
-                <div id="withdraw-fields" class="hidden">
-                    <label class="text-[10px] text-slate-500 uppercase">Wallet / Card Details</label>
-                    <input id="payment-details" type="text" placeholder="USDT / Card / Crypto" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-emerald-500">
-                </div>
-                <button onclick="App.submitPaymentRequest()" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl">SEND REQUEST</button>
-                <button onclick="App.closeModal()" class="w-full text-slate-500 text-sm">CANCEL</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- VIEW: SPLASH -->
-    <div id="view-splash" class="view fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950">
-        <div class="w-20 h-20 border-4 border-emerald-500 border-t-transparent animate-spin rounded-full"></div>
-        <p class="mt-4 text-emerald-500 uppercase tracking-widest text-[10px] animate-pulse">Connecting to Metro Network...</p>
-    </div>
+<body class="h-screen w-full flex flex-col">
 
     <!-- VIEW: HOME -->
-    <div id="view-home" class="view hidden flex-1 flex flex-col p-5 overflow-y-auto">
-        <div class="flex items-center gap-4 mb-8 glass p-4 rounded-2xl">
-            <div class="w-14 h-14 rounded-full border-2 border-emerald-500 bg-slate-800 flex items-center justify-center text-xl font-bold text-emerald-500" id="user-avatar-text">?</div>
+    <div id="view-home" class="view flex-1 flex flex-col p-5">
+        <div class="flex items-center gap-4 mb-6 glass p-4 rounded-2xl">
+            <div id="user-avatar" class="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-xl font-bold">U</div>
             <div class="flex-1">
-                <h2 id="user-name" class="text-lg font-bold text-white leading-none">User</h2>
-                <div class="flex items-center text-emerald-400 font-bold">
-                    <span id="user-balance">0.00</span><span class="ml-1 text-[10px] opacity-70">CASH</span>
-                </div>
+                <h2 id="user-name" class="text-white font-bold">Player</h2>
+                <div class="text-emerald-400 font-bold"><span id="user-balance">1000</span> CASH</div>
             </div>
-            <button onclick="location.href='admin.html'" class="p-2 bg-slate-800 rounded-lg">⚙️</button>
+            <!-- Кнопка админа убрана по инструкции -->
         </div>
 
         <div class="flex gap-2 mb-6">
-            <button onclick="App.setHomeTab('games')" id="tab-btn-games" class="flex-1 py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm uppercase">Games</button>
-            <button onclick="App.setHomeTab('servers')" id="tab-btn-servers" class="flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 font-bold text-sm uppercase">Servers</button>
+            <button onclick="App.setTab('games')" id="tab-btn-games" class="flex-1 py-2 rounded-lg bg-emerald-600 text-white font-bold text-xs uppercase">GAMES</button>
+            <button onclick="App.setTab('servers')" id="tab-btn-servers" class="flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 font-bold text-xs uppercase">LOBBIES</button>
         </div>
 
-        <div id="tab-games" class="space-y-4">
-            <div onclick="App.openCreateLobby('blackjack')" class="p-4 rounded-xl glass border border-slate-800 hover:border-emerald-500 transition-all cursor-pointer">
-                <h3 class="text-xl font-bold text-white">BLACKJACK</h3>
-                <p class="text-xs text-slate-400">Host your own table and win.</p>
+        <div id="content-games" class="space-y-3">
+            <div onclick="App.openCreateLobby('blackjack')" class="p-5 glass rounded-2xl border-l-4 border-emerald-500">
+                <h3 class="text-lg font-bold">BJ: UNDERGROUND</h3>
+                <p class="text-xs text-slate-500 uppercase tracking-tighter">Min Bet: 100 CASH</p>
             </div>
         </div>
 
-        <div id="tab-servers" class="hidden space-y-3">
-            <div id="server-list" class="space-y-3">
-                <div class="text-center py-10 text-slate-600 text-xs">Scanning for signals...</div>
+        <div id="content-servers" class="hidden space-y-3 overflow-y-auto">
+            <div id="server-list" class="space-y-2"><p class="text-center text-xs text-slate-600 mt-10">No signals...</p></div>
+        </div>
+    </div>
+
+    <!-- VIEW: GAME TABLE -->
+    <div id="view-game" class="view hidden fixed inset-0 z-50 bg-[#064e3b] flex flex-col">
+        <div class="p-4 flex justify-between items-center bg-black/20">
+            <div class="text-[10px] text-white/50">TABLE ID: <span id="game-table-id"></span></div>
+            <div id="game-status" class="text-xs font-bold text-emerald-400 animate-pulse">WAITING...</div>
+        </div>
+
+        <!-- Dealer Area -->
+        <div class="flex-1 flex flex-col items-center justify-center relative border-b border-white/5">
+            <div class="text-[10px] text-white/30 absolute top-4 uppercase tracking-widest">Dealer Hand</div>
+            <div id="dealer-cards" class="flex gap-2"></div>
+            <div id="dealer-score" class="mt-2 text-white font-bold"></div>
+        </div>
+
+        <!-- Player Area -->
+        <div class="flex-1 flex flex-col items-center justify-center relative">
+            <div class="text-[10px] text-white/30 absolute top-4 uppercase tracking-widest">Your Hand</div>
+            <div id="player-cards" class="flex gap-2"></div>
+            <div id="player-score" class="mt-2 text-white font-bold"></div>
+            
+            <div id="game-controls" class="hidden absolute bottom-10 flex gap-4">
+                <button onclick="App.gameAction('HIT')" class="btn-action w-24 py-4 bg-emerald-500 rounded-xl font-bold text-white shadow-lg">HIT</button>
+                <button onclick="App.gameAction('STAND')" class="btn-action w-24 py-4 bg-slate-700 rounded-xl font-bold text-white shadow-lg">STAND</button>
             </div>
         </div>
-
-        <div class="mt-auto grid grid-cols-2 gap-3 pt-6">
-            <button onclick="App.openPaymentModal('DEPOSIT')" class="bg-emerald-600/20 border border-emerald-500 text-emerald-500 font-bold py-3 rounded-xl uppercase">Deposit</button>
-            <button onclick="App.openPaymentModal('WITHDRAW')" class="bg-slate-800 border border-slate-700 text-white font-bold py-3 rounded-xl uppercase">Withdraw</button>
+        
+        <div id="game-overlay" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-[60]">
+            <div class="text-center">
+                <h1 id="result-text" class="text-4xl font-black mb-6">YOU WIN!</h1>
+                <button onclick="location.reload()" class="px-8 py-3 bg-emerald-600 rounded-xl font-bold">BACK TO LOBBY</button>
+            </div>
         </div>
-    </div>
-
-    <!-- LOBBY & GAME VIEWS (Keep structure from previous but simplified for integration) -->
-    <div id="view-lobby-config" class="view hidden p-6 text-center">
-        <h2 class="text-2xl font-bold mb-6 mt-20">CREATE TABLE</h2>
-        <input id="input-bet" type="number" value="100" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-emerald-400 text-2xl text-center mb-6">
-        <button onclick="App.createGameAction()" class="w-full py-4 bg-emerald-600 text-white font-bold rounded-xl">PUBLISH TO CHANNEL</button>
-        <button onclick="App.switchView('home')" class="mt-4 text-slate-500">BACK</button>
-    </div>
-
-    <div id="view-lobby-wait" class="view hidden p-6 text-center">
-        <div class="w-20 h-20 border-4 border-emerald-500 border-t-transparent animate-spin rounded-full mx-auto mt-20"></div>
-        <h2 class="text-xl font-bold mt-6">LOBBY ACTIVE</h2>
-        <p class="text-xs text-slate-500 mt-2">Waiting for opponent from channel...</p>
-        <div id="lobby-id-display" class="mt-10 font-mono text-emerald-500 opacity-50"></div>
-        <button onclick="App.cancelLobby()" class="mt-10 text-red-500 font-bold">CANCEL</button>
     </div>
 
     <script type="module">
         import { MetroAPI, CHANNEL_ID } from './api.js';
+        import { MetroNetwork } from './network.js';
+        import { Blackjack } from './game.js';
 
         const tg = window.Telegram.WebApp;
-        
+
         window.App = {
             state: {
-                user: { id: 0, name: 'Guest', balance: 1000 },
-                activeTab: 'games',
-                lobbyHeartbeat: null,
-                paymentMode: 'DEPOSIT',
-                peer: null, conn: null, peerId: null
+                user: { id: Date.now(), name: 'Guest', balance: 1000 },
+                role: null, // 'dealer' or 'player'
+                game: {
+                    deck: [],
+                    dealerHand: [],
+                    playerHand: [],
+                    status: 'WAITING',
+                    bet: 100
+                },
+                net: null
             },
 
-            async init() {
+            init() {
                 tg.ready();
-                tg.expand();
                 const u = tg.initDataUnsafe?.user;
                 if(u) {
                     this.state.user.id = u.id;
                     this.state.user.name = u.first_name;
                     document.getElementById('user-name').innerText = u.first_name;
-                    document.getElementById('user-avatar-text').innerText = u.first_name[0];
                 }
                 
-                this.initNetwork();
-                setTimeout(() => this.switchView('home'), 1000);
-                setInterval(() => this.refreshServers(), 10000);
+                this.state.net = new MetroNetwork(this.state.user.id, (data) => this.handleNetMessage(data), (conn) => this.onPlayerJoined());
+                setInterval(() => this.refreshLobbies(), 10000);
             },
 
-            initNetwork() {
-                const id = `metro_${this.state.user.id || Math.floor(Math.random()*1000)}`;
-                this.state.peer = new Peer(id);
-                this.state.peer.on('open', (pid) => this.state.peerId = pid);
-                this.state.peer.on('connection', (conn) => {
-                    this.state.conn = conn;
-                    this.setupConnection();
-                    alert("Player joined! Game starting...");
-                });
+            setTab(tab) {
+                document.getElementById('content-games').classList.toggle('hidden', tab !== 'games');
+                document.getElementById('content-servers').classList.toggle('hidden', tab !== 'servers');
+                if(tab === 'servers') this.refreshLobbies();
             },
 
-            setupConnection() {
-                this.state.conn.on('open', () => {
-                    // Logic to start game
-                });
-            },
-
-            switchView(id) {
+            async openCreateLobby() {
+                this.state.role = 'dealer';
+                const bet = prompt("Enter Bet Amount:", "100") || "100";
+                this.state.game.bet = parseInt(bet);
+                
                 document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-                document.getElementById(`view-${id}`).classList.remove('hidden');
+                document.getElementById('view-game').classList.remove('hidden');
+                document.getElementById('game-table-id').innerText = this.state.user.id;
+                
+                const text = `#METRO_LOBBY|ID:metro_${this.state.user.id}|USER:${this.state.user.name}|BET:${bet}`;
+                await MetroAPI.sendMessage(CHANNEL_ID, text);
             },
 
-            setHomeTab(tab) {
-                this.state.activeTab = tab;
-                document.getElementById('tab-games').classList.toggle('hidden', tab !== 'games');
-                document.getElementById('tab-servers').classList.toggle('hidden', tab !== 'servers');
-                if(tab === 'servers') this.refreshServers();
-            },
-
-            // --- LOBBY LOGIC ---
-            async createGameAction() {
-                const bet = document.getElementById('input-bet').value;
-                this.switchView('lobby-wait');
-                document.getElementById('lobby-id-display').innerText = this.state.peerId;
-
-                // Heartbeat system: репостим лобби каждые 30 сек чтобы оно было в топе
-                const publish = async () => {
-                    const text = `#METRO_LOBBY|ID:${this.state.peerId}|USER:${this.state.user.name}|BET:${bet}`;
-                    await MetroAPI.sendMessage(CHANNEL_ID, text);
-                };
-
-                publish();
-                this.state.lobbyHeartbeat = setInterval(publish, 45000);
-            },
-
-            cancelLobby() {
-                if(this.state.lobbyHeartbeat) clearInterval(this.state.lobbyHeartbeat);
-                this.switchView('home');
-            },
-
-            async refreshServers() {
-                if(this.state.activeTab !== 'servers') return;
+            async refreshLobbies() {
                 const listEl = document.getElementById('server-list');
                 const updates = await MetroAPI.getUpdates();
+                const lobbies = updates.map(u => MetroAPI.parseLobby((u.channel_post || u.message)?.text, (u.channel_post || u.message)?.date)).filter(x => x);
                 
-                const lobbies = [];
-                updates.forEach(u => {
-                    const msg = u.channel_post || u.message;
-                    if(!msg) return;
-                    const data = MetroAPI.parseLobby(msg.text, msg.date);
-                    if(data) lobbies.push(data);
-                });
+                if(lobbies.length === 0) return;
 
-                // Unique by ID
-                const uniqueLobbies = Array.from(new Map(lobbies.map(l => [l.id, l])).values());
-
-                if(uniqueLobbies.length === 0) {
-                    listEl.innerHTML = '<div class="text-center py-10 text-slate-600 text-xs italic">No active lobbies. Create your own!</div>';
-                    return;
-                }
-
-                listEl.innerHTML = uniqueLobbies.map(l => `
-                    <div onclick="App.joinLobby('${l.id}')" class="server-card p-4 rounded-xl flex justify-between items-center active:scale-95 transition-transform cursor-pointer">
+                listEl.innerHTML = lobbies.map(l => `
+                    <div onclick="App.joinLobby('${l.id}', ${l.bet})" class="glass p-4 rounded-xl flex justify-between items-center">
                         <div>
-                            <div class="text-white font-bold text-sm">${l.user}'s Room</div>
-                            <div class="text-[10px] text-emerald-500">ONLINE</div>
+                            <div class="text-white font-bold text-sm">${l.user}'s Table</div>
+                            <div class="text-[10px] text-emerald-500">READY TO PLAY</div>
                         </div>
                         <div class="text-right">
                             <div class="text-emerald-400 font-bold">${l.bet} CASH</div>
-                            <div class="text-[10px] text-slate-500 uppercase">Bet</div>
                         </div>
                     </div>
                 `).join('');
             },
 
-            joinLobby(targetId) {
-                if(targetId === this.state.peerId) return alert("You cannot join your own lobby");
-                this.state.conn = this.state.peer.connect(targetId);
-                this.setupConnection();
-                alert("Connecting to host...");
+            joinLobby(id, bet) {
+                this.state.role = 'player';
+                this.state.game.bet = bet;
+                this.state.net.connectTo(id);
+                document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+                document.getElementById('view-game').classList.remove('hidden');
+                document.getElementById('game-table-id').innerText = id;
             },
 
-            // --- PAYMENT LOGIC ---
-            openPaymentModal(type) {
-                this.state.paymentMode = type;
-                document.getElementById('modal-title').innerText = type;
-                document.getElementById('withdraw-fields').classList.toggle('hidden', type === 'DEPOSIT');
-                document.getElementById('modal-payment').classList.remove('hidden');
+            onPlayerJoined() {
+                if(this.state.role !== 'dealer') return;
+                this.startNewGame();
             },
 
-            closeModal() {
-                document.getElementById('modal-payment').classList.add('hidden');
+            startNewGame() {
+                this.state.game.deck = Blackjack.createDeck();
+                this.state.game.playerHand = [this.state.game.deck.pop(), this.state.game.deck.pop()];
+                this.state.game.dealerHand = [this.state.game.deck.pop(), this.state.game.deck.pop()];
+                this.state.game.status = 'PLAYER_TURN';
+                this.sync();
             },
 
-            async submitPaymentRequest() {
-                const amount = document.getElementById('payment-amount').value;
-                const details = document.getElementById('payment-details').value;
-                
-                if(!amount || amount <= 0) return alert("Enter valid amount");
+            handleNetMessage(msg) {
+                switch(msg.type) {
+                    case 'SYNC':
+                        this.state.game = msg.state;
+                        this.renderGame();
+                        break;
+                    case 'ACTION':
+                        if(this.state.role === 'dealer') this.processPlayerAction(msg.action);
+                        break;
+                }
+            },
 
-                const text = `#PAY_REQ|TYPE:${this.state.paymentMode}|USER:${this.state.user.name}|ID:${this.state.user.id}|AMT:${amount}|INFO:${details || 'N/A'}`;
-                
-                tg.showConfirm(`Send ${this.state.paymentMode} request for ${amount} CASH?`, async (ok) => {
-                    if(ok) {
-                        tg.MainButton.showProgress();
-                        const res = await MetroAPI.sendMessage(CHANNEL_ID, text); // Для примера в канал, лучше в личку админу
-                        tg.MainButton.hideProgress();
-                        if(res) {
-                            alert("Request sent! Wait for admin approval.");
-                            this.closeModal();
-                        }
+            processPlayerAction(action) {
+                if(action === 'HIT') {
+                    this.state.game.playerHand.push(this.state.game.deck.pop());
+                    if(Blackjack.getScore(this.state.game.playerHand) > 21) {
+                        this.state.game.status = 'FINISHED';
                     }
-                });
+                } else {
+                    this.state.game.status = 'DEALER_TURN';
+                    this.dealerPlay();
+                }
+                this.sync();
+            },
+
+            dealerPlay() {
+                while(Blackjack.getScore(this.state.game.dealerHand) < 17) {
+                    this.state.game.dealerHand.push(this.state.game.deck.pop());
+                }
+                this.state.game.status = 'FINISHED';
+                this.sync();
+            },
+
+            sync() {
+                this.state.net.send('SYNC', { state: this.state.game });
+                this.renderGame();
+            },
+
+            gameAction(act) {
+                if(this.state.role === 'player') {
+                    this.state.net.send('ACTION', { action: act });
+                } else {
+                    this.processPlayerAction(act);
+                }
+            },
+
+            renderGame() {
+                const g = this.state.game;
+                const pList = document.getElementById('player-cards');
+                const dList = document.getElementById('dealer-cards');
+                
+                pList.innerHTML = g.playerHand.map(c => this.renderCard(c)).join('');
+                dList.innerHTML = g.dealerHand.map((c, i) => 
+                    (i === 0 && g.status === 'PLAYER_TURN' && this.state.role === 'player') 
+                    ? `<div class="card-ui bg-slate-800 border-2 border-white/20"></div>` 
+                    : this.renderCard(c)
+                ).join('');
+
+                document.getElementById('player-score').innerText = Blackjack.getScore(g.playerHand);
+                document.getElementById('dealer-score').innerText = g.status === 'FINISHED' ? Blackjack.getScore(g.dealerHand) : '?';
+                
+                const controls = document.getElementById('game-controls');
+                if(g.status === 'PLAYER_TURN') {
+                    controls.classList.remove('hidden');
+                } else {
+                    controls.classList.add('hidden');
+                }
+
+                if(g.status === 'FINISHED') {
+                    this.showResult();
+                }
+            },
+
+            renderCard(c) {
+                const isRed = ['♥', '♦'].includes(c.suit);
+                return `<div class="card-ui ${isRed ? 'card-red' : ''}">
+                    <div class="text-xs self-start ml-1">${c.value}</div>
+                    <div class="text-2xl">${c.suit}</div>
+                    <div class="text-xs self-end mr-1 rotate-180">${c.value}</div>
+                </div>`;
+            },
+
+            showResult() {
+                const pS = Blackjack.getScore(this.state.game.playerHand);
+                const dS = Blackjack.getScore(this.state.game.dealerHand);
+                let res = "";
+
+                if(pS > 21) res = "BUST! YOU LOSE";
+                else if(dS > 21) res = "DEALER BUSTS! WIN";
+                else if(pS > dS) res = "YOU WIN!";
+                else if(pS < dS) res = "YOU LOSE";
+                else res = "PUSH (DRAW)";
+
+                document.getElementById('result-text').innerText = res;
+                document.getElementById('game-overlay').classList.remove('hidden');
             }
         };
 
-        window.addEventListener('load', () => App.init());
+        App.init();
     </script>
 </body>
 </html>
