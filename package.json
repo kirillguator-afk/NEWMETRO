@@ -1,8 +1,8 @@
 
 {
   "name": "metro-cash-twa",
-  "version": "1.6.0",
-  "description": "Blackjack Multi-Node TWA - Node 24",
+  "version": "1.7.0",
+  "description": "Blackjack P2P TWA - Ultra Stable Recovery Edition",
   "main": "api/lobbies.js",
   "type": "module",
   "dependencies": {
@@ -10,6 +10,6 @@
     "@vercel/blob": "^0.22.1"
   },
   "engines": {
-    "node": "24.x"
+    "node": "22.x"
   }
 }
