@@ -12,8 +12,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
         body { font-family: 'Rajdhani', sans-serif; background: #020617; color: #e2e8f0; overflow: hidden; }
         .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .card-ui { width: 60px; height: 85px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: translateY(0); }
-        .card-ui:hover { transform: translateY(-5px); }
+        .card-ui { width: 60px; height: 85px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; transition: all 0.3s ease; }
         .card-red { color: #ef4444; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .pulse-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite; }
@@ -26,7 +25,7 @@
 
     <div id="net-overlay" class="modal hidden flex-col">
         <div class="w-8 h-8 border-2 border-emerald-500 border-t-transparent animate-spin rounded-full"></div>
-        <p class="mt-4 text-emerald-400 font-bold text-[10px] tracking-widest">STABILIZING P2P LINK...</p>
+        <p class="mt-4 text-emerald-400 font-bold text-[10px] tracking-widest uppercase">Establishing Secure Channel</p>
     </div>
 
     <div id="view-home" class="view flex-1 flex flex-col p-5 overflow-y-auto">
@@ -48,7 +47,7 @@
         <div id="pane-games" class="space-y-3">
             <div id="btn-create-bj" class="p-6 glass rounded-2xl border-l-4 border-emerald-500 active:scale-95 transition-all cursor-pointer">
                 <h3 class="font-bold text-lg">BLACKJACK</h3>
-                <p class="text-[10px] text-slate-500 uppercase">Secure Server-Side Logic</p>
+                <p class="text-[10px] text-slate-500 uppercase">Hosted on Secure Node</p>
             </div>
         </div>
 
@@ -59,8 +58,8 @@
 
     <div id="view-game" class="view hidden fixed inset-0 z-50 bg-[#064e3b] flex flex-col">
         <div class="p-4 flex justify-between bg-black/40 text-[10px] border-b border-white/5">
-            <span id="game-id-label" class="opacity-50">P2P SECURED</span>
-            <span id="game-status-label" class="text-emerald-400 font-bold">SYNCING...</span>
+            <span class="opacity-50">SECURE SESSION</span>
+            <span id="game-status-label" class="text-emerald-400 font-bold">SYNCED</span>
         </div>
         
         <div class="flex-1 flex flex-col items-center justify-center relative">
@@ -73,14 +72,14 @@
             <div id="player-score" class="mt-4 px-3 py-1 bg-black/20 rounded-full text-white text-xs font-bold"></div>
             
             <div id="game-actions" class="hidden absolute bottom-10 flex gap-6">
-                <button id="btn-hit" class="w-28 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-xl active:translate-y-1 transition-transform">HIT</button>
-                <button id="btn-stand" class="w-28 py-4 bg-slate-700 text-white font-black rounded-2xl shadow-xl active:translate-y-1 transition-transform">STAND</button>
+                <button id="btn-hit" class="w-28 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-xl">HIT</button>
+                <button id="btn-stand" class="w-28 py-4 bg-slate-700 text-white font-black rounded-2xl shadow-xl">STAND</button>
             </div>
         </div>
 
-        <div id="result-overlay" class="hidden fixed inset-0 bg-black/95 z-[60] flex flex-col items-center justify-center p-10 text-center">
-            <h1 id="result-msg" class="text-6xl font-black mb-10 italic tracking-tighter"></h1>
-            <button onclick="location.reload()" class="w-full max-w-xs py-4 bg-white text-black font-black rounded-2xl shadow-2xl">EXIT TABLE</button>
+        <div id="result-overlay" class="hidden modal z-[60] flex-col text-center">
+            <h1 id="result-msg" class="text-6xl font-black mb-10 italic"></h1>
+            <button onclick="location.reload()" class="w-full max-w-xs py-4 bg-white text-black font-black rounded-2xl">CONTINUE</button>
         </div>
     </div>
 
@@ -96,8 +95,7 @@
                 role: null, 
                 game: null,
                 lobbyId: null,
-                net: null, 
-                activeTab: 'games'
+                net: null
             },
 
             async init() {
@@ -112,10 +110,8 @@
                     if(prof?.avatarUrl) this.updateAvatarUI(prof.avatarUrl);
                 }
                 
-                // Инициализация сети с рандомизированным ID
                 this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
                 
-                // Event Listeners
                 document.getElementById('avatar-trigger').onclick = () => document.getElementById('avatar-input').click();
                 document.getElementById('avatar-input').onchange = (e) => this.handleAvatarUpload(e);
                 document.getElementById('tab-btn-games').onclick = () => this.setTab('games');
@@ -124,15 +120,13 @@
                 document.getElementById('btn-hit').onclick = () => this.gameAction('HIT');
                 document.getElementById('btn-stand').onclick = () => this.gameAction('STAND');
 
-                setInterval(() => { if(this.state.activeTab === 'servers') this.refreshLobbies(); }, 10000);
+                setInterval(() => { if(this.activeTab === 'servers') this.refreshLobbies(); }, 8000);
             },
 
             async handleAvatarUpload(e) {
                 const f = e.target.files[0];
                 if(!f) return;
-                tg.MainButton.setText("UPLOADING...").show().showProgress();
                 const res = await MetroAPI.uploadAvatar(f);
-                tg.MainButton.hide();
                 if(res?.url) this.updateAvatarUI(res.url);
             },
 
@@ -147,42 +141,57 @@
             },
 
             setTab(t) {
-                this.state.activeTab = t;
+                this.activeTab = t;
                 document.getElementById('pane-games').classList.toggle('hidden', t !== 'games');
                 document.getElementById('pane-servers').classList.toggle('hidden', t !== 'servers');
-                document.getElementById('tab-btn-games').className = t === 'games' ? 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs' : 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs';
-                document.getElementById('tab-btn-servers').className = t === 'servers' ? 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs' : 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs';
                 if(t === 'servers') this.refreshLobbies();
             },
 
             async refreshLobbies() {
                 const listEl = document.getElementById('server-list');
                 const labs = await MetroAPI.getLobbies();
-                
                 listEl.innerHTML = '';
+                
                 labs.forEach(i => {
                     const row = document.createElement('div');
                     row.className = 'glass p-5 rounded-2xl flex justify-between items-center cursor-pointer active:scale-95 transition-all';
-                    row.onclick = () => this.joinTable(i.id, i.bet);
+                    row.onclick = () => this.joinTable(i.id);
                     
-                    row.innerHTML = `
-                        <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden border border-white/10">
-                                ${i.avatar ? `<img src="${i.avatar}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center font-bold text-emerald-500">${i.user[0]}</div>`}
-                            </div>
-                            <div>
-                                <div class="font-bold text-white tracking-tight">${i.user}</div>
-                                <div class="flex items-center gap-1.5"><div class="pulse-dot"></div><span class="text-[9px] text-emerald-500 font-bold">P2P READY</span></div>
-                            </div>
-                        </div>
-                        <div class="text-emerald-400 font-black text-lg">${parseInt(i.bet)}</div>
-                    `;
+                    // Безопасное наполнение через элементы
+                    const left = document.createElement('div');
+                    left.className = 'flex items-center gap-4';
+                    
+                    const avatar = document.createElement('div');
+                    avatar.className = 'w-10 h-10 rounded-full bg-slate-800 overflow-hidden border border-white/10 flex items-center justify-center';
+                    if(i.avatar) {
+                        const img = document.createElement('img');
+                        img.src = i.avatar;
+                        img.className = 'w-full h-full object-cover';
+                        avatar.appendChild(img);
+                    } else {
+                        avatar.textContent = i.user[0];
+                    }
+
+                    const info = document.createElement('div');
+                    const name = document.createElement('div');
+                    name.className = 'font-bold text-white tracking-tight';
+                    name.textContent = i.user;
+                    info.appendChild(name);
+                    
+                    const bet = document.createElement('div');
+                    bet.className = 'text-emerald-400 font-black text-lg';
+                    bet.textContent = i.bet;
+
+                    left.appendChild(avatar);
+                    left.appendChild(info);
+                    row.appendChild(left);
+                    row.appendChild(bet);
                     listEl.appendChild(row);
                 });
             },
 
             async openCreateLobby() {
-                const b = prompt("ENTER BET:", "100");
+                const b = prompt("BET AMOUNT:", "100");
                 if(!b) return;
                 this.state.role = 'host';
                 this.state.lobbyId = this.state.net.peerId;
@@ -193,35 +202,45 @@
                 await MetroAPI.publishLobby(this.state.user.id, this.state.user.name, b, this.state.user.avatarUrl, this.state.net.peerId);
             },
 
-            joinTable(peerId, bet) {
+            async joinTable(id) {
                 this.state.role = 'client';
-                this.state.lobbyId = peerId;
+                this.state.lobbyId = id;
                 document.getElementById('net-overlay').classList.remove('hidden');
-                this.state.net.connectTo(peerId);
+                this.state.net.connectTo(id);
             },
 
             onPeerReady() {
                 document.getElementById('net-overlay').classList.add('hidden');
                 if(this.state.role === 'client') {
                     this.showView('game');
-                    // Клиент просто ждет первого SYNC от Хоста
+                    this.syncState();
+                }
+            },
+
+            async syncState() {
+                const res = await MetroAPI.performAction(this.state.lobbyId, 'SYNC_REQUEST');
+                if(res) {
+                    this.state.game = res;
+                    this.render();
                 }
             },
 
             async gameAction(act) {
-                // Все действия теперь через API (Authority)
                 const newState = await MetroAPI.performAction(this.state.lobbyId, act);
-                this.state.game = newState;
-                if(this.state.role === 'host') {
-                    this.state.net.send('SYNC', { game: newState });
+                if(newState.error) {
+                    tg.showAlert(newState.error);
+                    return;
                 }
+                this.state.game = newState;
+                // Уведомляем клиента по P2P об изменении
+                this.state.net.send('UPDATE_SIGNAL');
                 this.render();
             },
 
             onNetMsg(msg) {
-                if(msg.type === 'SYNC') {
-                    this.state.game = msg.game;
-                    this.render();
+                // P2P используется только как триггер, данные тянутся из API (Authority)
+                if(msg.type === 'UPDATE_SIGNAL') {
+                    this.syncState();
                 }
             },
 
@@ -229,23 +248,20 @@
                 const g = this.state.game;
                 if(!g) return;
 
-                const isPlayerTurn = g.status === 'PLAYER_TURN';
-                const showDealerFull = g.status === 'END' || g.status === 'DEALER_TURN';
+                const isEnd = g.status === 'END';
+                const showFullDealer = isEnd || g.status === 'DEALER_TURN';
 
                 document.getElementById('player-cards').innerHTML = g.playerHand.map(c => this.cardTpl(c)).join('');
                 document.getElementById('dealer-cards').innerHTML = g.dealerHand.map((c, i) => 
-                    (i === 0 && !showDealerFull) ? `<div class="card-ui bg-slate-800 border border-white/10"></div>` : this.cardTpl(c)
+                    (i === 0 && !showFullDealer) ? `<div class="card-ui bg-slate-800"></div>` : this.cardTpl(c)
                 ).join('');
 
                 document.getElementById('player-score').textContent = this.calcScore(g.playerHand);
-                document.getElementById('dealer-score').textContent = showDealerFull ? this.calcScore(g.dealerHand) : '?';
+                document.getElementById('dealer-score').textContent = showFullDealer ? this.calcScore(g.dealerHand) : '?';
+                document.getElementById('game-actions').classList.toggle('hidden', g.status !== 'PLAYER_TURN');
                 
-                // Только "Хост" может нажимать кнопки, так как он синхронизирует состояние (Authority на сервере, но Хост - прокси)
-                // Или разрешить обоим, если API поддерживает сессии по LobbyId
-                document.getElementById('game-actions').classList.toggle('hidden', !isPlayerTurn);
-                
-                if(g.status === 'END') {
-                    setTimeout(() => this.showResult(), 1000);
+                if(isEnd) {
+                    setTimeout(() => this.showResult(), 800);
                 }
             },
 
@@ -271,7 +287,7 @@
             showResult() {
                 const p = this.calcScore(this.state.game.playerHand);
                 const d = this.calcScore(this.state.game.dealerHand);
-                let res = (p > 21) ? "BUSTED" : (d > 21 || p > d) ? "WINNER" : (p === d) ? "PUSH" : "LOSE";
+                let res = (p > 21) ? "BUSTED" : (d > 21 || p > d) ? "WINNER" : (p === d) ? "PUSH" : "DEALER WINS";
                 const msg = document.getElementById('result-msg');
                 msg.textContent = res;
                 msg.className = `text-6xl font-black mb-10 italic ${res==='WINNER'?'text-emerald-500':'text-red-500'}`;

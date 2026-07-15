@@ -19,11 +19,6 @@
     <script type="module">
         import { MetroAPI } from './api.js';
         const tg = window.Telegram.WebApp;
-        const esc = (s) => {
-            const t = document.createElement('div');
-            t.textContent = s;
-            return t.innerHTML;
-        };
 
         async function init() {
             tg.ready();
@@ -38,18 +33,42 @@
 
         function render(reqs) {
             const listEl = document.getElementById('list');
-            listEl.innerHTML = reqs.map(r => `
-                <div class="p-6 bg-slate-900 border border-white/5 rounded-2xl">
-                    <div class="flex justify-between">
-                        <span class="text-[10px] font-black ${r.payType==='DEPOSIT'?'text-emerald-400':'text-orange-400'}">${r.payType}</span>
-                        <span class="font-bold text-lg">${parseInt(r.amount)} CASH</span>
-                    </div>
-                    <div class="text-[10px] text-slate-500 mt-3 font-mono">
-                        <div>USER: ${esc(r.user)} (${esc(r.id)})</div>
-                        <div>INFO: ${esc(r.info)}</div>
-                    </div>
-                </div>
-            `).join('') || "No requests.";
+            listEl.innerHTML = '';
+            
+            if (!reqs.length) {
+                listEl.textContent = "No requests found.";
+                return;
+            }
+
+            reqs.forEach(r => {
+                const card = document.createElement('div');
+                card.className = 'p-6 bg-slate-900 border border-white/5 rounded-2xl';
+                
+                // [SECURITY] Используем textContent для предотвращения XSS
+                const header = document.createElement('div');
+                header.className = 'flex justify-between';
+                header.innerHTML = `<span class="text-[10px] font-black ${r.payType==='DEPOSIT'?'text-emerald-400':'text-orange-400'}">${r.payType}</span>`;
+                
+                const amt = document.createElement('span');
+                amt.className = 'font-bold text-lg';
+                amt.textContent = `${parseInt(r.amount)} CASH`;
+                header.appendChild(amt);
+
+                const info = document.createElement('div');
+                info.className = 'text-[10px] text-slate-500 mt-3 font-mono';
+                
+                const userLine = document.createElement('div');
+                userLine.textContent = `USER: ${r.user} (${r.id})`;
+                
+                const dataLine = document.createElement('div');
+                dataLine.textContent = `INFO: ${r.info}`;
+
+                info.appendChild(userLine);
+                info.appendChild(dataLine);
+                card.appendChild(header);
+                card.appendChild(info);
+                listEl.appendChild(card);
+            });
         }
         init();
     </script>

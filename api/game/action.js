@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     const tgUser = getUserData(initData);
     const gameKey = `game_session:${lobbyId}`;
 
-    // 1. Инициализация игры (только Хост)
+    // 1. Инициализация (START)
     if (action === 'START') {
         const deck = BlackjackEngine.createDeck();
         const gameState = {
@@ -23,22 +23,27 @@ export default async function handler(req, res) {
             playerHand: [deck.pop(), deck.pop()],
             dealerHand: [deck.pop(), deck.pop()],
             status: 'PLAYER_TURN',
-            bet: req.body.bet || 100,
-            hostId: tgUser.id
+            bet: Math.min(Math.max(10, parseInt(req.body.bet) || 100), 10000),
+            hostId: tgUser.id // Привязываем игру к создателю
         };
-        await kv.set(gameKey, gameState, { ex: 600 });
-        // Убираем колоду из ответа для клиента (Security)
+        await kv.set(gameKey, gameState, { ex: 900 }); // 15 мин TTL
+        
         const publicState = { ...gameState };
         delete publicState.deck;
         return res.status(200).json(publicState);
     }
 
-    // 2. Игровые действия (Hit/Stand)
+    // 2. Загрузка состояния
     const state = await kv.get(gameKey);
-    if (!state) return res.status(404).json({ error: 'Game not found' });
+    if (!state) return res.status(404).json({ error: 'Session expired or not found' });
+
+    // [CRITICAL SECURITY] Проверка владения сессией
+    if (state.hostId !== tgUser.id) {
+        return res.status(403).json({ error: 'Access denied: You are not the player of this session' });
+    }
 
     if (action === 'HIT') {
-        if (state.status !== 'PLAYER_TURN') return res.status(400).json({ error: 'Invalid turn' });
+        if (state.status !== 'PLAYER_TURN') return res.status(400).json({ error: 'Not your turn' });
         
         const card = state.deck.pop();
         state.playerHand.push(card);
@@ -46,17 +51,26 @@ export default async function handler(req, res) {
         if (BlackjackEngine.getScore(state.playerHand) > 21) {
             state.status = 'END';
         }
-    }
-
-    if (action === 'STAND') {
+    } else if (action === 'STAND') {
+        if (state.status !== 'PLAYER_TURN') return res.status(400).json({ error: 'Invalid sequence' });
+        
         state.status = 'DEALER_TURN';
+        // Логика дилера
         while (BlackjackEngine.getScore(state.dealerHand) < 17) {
             state.dealerHand.push(state.deck.pop());
         }
         state.status = 'END';
+    } else if (action === 'SYNC_REQUEST') {
+        // Просто возвращаем текущее состояние
+    } else {
+        return res.status(400).json({ error: 'Unknown action' });
     }
 
-    await kv.set(gameKey, state, { ex: 600 });
-    delete state.deck; // Не отправляем колоду клиенту
-    return res.status(200).json(state);
+    // Сохраняем обновленное состояние
+    await kv.set(gameKey, state, { ex: 900 });
+    
+    // Безопасный ответ (без колоды)
+    const secureState = { ...state };
+    delete secureState.deck;
+    return res.status(200).json(secureState);
 }

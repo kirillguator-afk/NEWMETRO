@@ -1,6 +1,6 @@
 
 import { kv } from '@vercel/kv';
-import { verifyTelegramAuth } from './utils/auth.js';
+import { verifyTelegramAuth, getUserData } from './utils/auth.js';
 
 export default async function handler(req, res) {
     const initData = req.headers['x-telegram-init-data'];
@@ -10,28 +10,37 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    const tgUser = getUserData(initData);
+
     if (req.method === 'POST') {
-        const { id, user, bet, avatar } = req.body;
-        if (!id || !user) return res.status(400).json({ error: 'Invalid data' });
+        const { id, bet, avatar } = req.body;
+        if (!id) return res.status(400).json({ error: 'Lobby ID is required' });
         
         const lobbyKey = `lobby:${id}`;
+        
+        // [SECURITY] Берем имя только из tgUser (initData), а не из body
+        // Санитизируем, убирая потенциальные HTML теги
+        const safeName = tgUser.first_name.replace(/[<>]/g, '').substring(0, 25);
+
         const payload = {
             id,
-            user: user.substring(0, 20),
-            bet: parseInt(bet) || 0,
+            hostId: tgUser.id, // Сохраняем владельца для проверки прав
+            user: safeName,
+            bet: Math.max(0, parseInt(bet) || 0),
             avatar: avatar || null,
             ts: Date.now()
         };
 
-        // Используем SET для хранения списка ключей (O(1))
-        await kv.set(lobbyKey, payload, { ex: 600 });
-        await kv.sadd('active_lobbies_set', lobbyKey);
+        // [PERFORMANCE] Используем Pipeline для атомарности и скорости
+        const pipeline = kv.pipeline();
+        pipeline.set(lobbyKey, payload, { ex: 600 });
+        pipeline.sadd('active_lobbies_set', lobbyKey);
+        await pipeline.exec();
         
         return res.status(200).json({ success: true });
     }
 
     if (req.method === 'GET') {
-        // Получаем ключи из сета
         const keys = await kv.smembers('active_lobbies_set');
         if (keys.length === 0) return res.status(200).json([]);
         
@@ -39,7 +48,6 @@ export default async function handler(req, res) {
         const validLobbies = [];
         const expiredKeys = [];
 
-        // Фильтруем протухшие ключи (Redis KV удаляет сам, но в сете они могут остаться)
         lobbies.forEach((lobby, index) => {
             if (lobby) {
                 validLobbies.push(lobby);
@@ -48,7 +56,7 @@ export default async function handler(req, res) {
             }
         });
 
-        // Чистим сет от старых ключей в фоне
+        // Очистка сетки от удаленных/протухших ключей
         if (expiredKeys.length > 0) {
             await kv.srem('active_lobbies_set', ...expiredKeys);
         }

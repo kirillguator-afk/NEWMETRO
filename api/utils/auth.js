@@ -2,21 +2,23 @@
 import crypto from 'crypto';
 
 /**
- * Верификация данных Telegram Web App с повышенной безопасностью
+ * Верификация данных Telegram Web App с защитой от Replay-атак
  */
 export function verifyTelegramAuth(initData, botToken) {
-    if (!initData) return false;
+    if (!initData || !botToken) return false;
 
     try {
         const urlParams = new URLSearchParams(initData);
         const hash = urlParams.get('hash');
+        if (!hash) return false;
+        
         urlParams.delete('hash');
 
-        // [SECURITY] Проверка "свежести" данных (60 секунд) против Replay-атак
+        // [SECURITY] Проверка "свежести" (300 секунд / 5 минут)
+        // 60 секунд было слишком мало для медленного мобильного интернета
         const authDate = parseInt(urlParams.get('auth_date'));
         const now = Math.floor(Date.now() / 1000);
-        if (!authDate || Math.abs(now - authDate) > 60) {
-            console.warn("Auth token expired or too old");
+        if (!authDate || (now - authDate) > 300) {
             return false;
         }
 
