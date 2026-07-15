@@ -19,6 +19,7 @@
         .server-entry:hover { border-color: #10b981; background: rgba(16, 185, 129, 0.05); }
         .pulse-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
+        .system-badge { background: linear-gradient(90deg, #059669, #10b981); color: white; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; }
     </style>
 </head>
 <body class="h-screen w-full flex flex-col">
@@ -70,10 +71,7 @@
 
         <div id="pane-servers" class="hidden space-y-3">
             <div id="server-list" class="space-y-3">
-                <div class="flex flex-col items-center justify-center py-20 opacity-30">
-                    <div class="w-8 h-8 border-2 border-emerald-500 border-t-transparent animate-spin rounded-full mb-4"></div>
-                    <p class="text-xs uppercase tracking-widest">Scanning Metro Frequency...</p>
-                </div>
+                <!-- Lobbies injected here -->
             </div>
         </div>
 
@@ -89,7 +87,7 @@
             <span id="game-id-label" class="opacity-50">ID: ---</span>
             <div class="flex items-center gap-2">
                 <div class="pulse-dot"></div>
-                <span id="game-status-label" class="text-emerald-400 font-bold uppercase tracking-widest">Waiting for player</span>
+                <span id="game-status-label" class="text-emerald-400 font-bold uppercase tracking-widest">Waiting</span>
             </div>
         </div>
         
@@ -111,7 +109,6 @@
         </div>
 
         <div id="result-overlay" class="hidden fixed inset-0 bg-black/95 z-[60] flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-500">
-            <div id="result-glow" class="absolute w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full"></div>
             <h1 id="result-msg" class="text-6xl font-black mb-10 tracking-tighter italic"></h1>
             <button onclick="location.reload()" class="w-full max-w-xs py-4 bg-white text-black font-black rounded-2xl tracking-widest uppercase hover:bg-emerald-400 transition-colors">Back to Metro</button>
         </div>
@@ -124,13 +121,19 @@
 
         const tg = window.Telegram.WebApp;
 
+        // Конфигурация базовых серверов (AI Tables)
+        const DEFAULT_SERVERS = [
+            { id: 'system_low', user: 'STREET GUTTER', bet: 100, isSystem: true },
+            { id: 'system_mid', user: 'MID-CITY STATION', bet: 500, isSystem: true },
+            { id: 'system_high', user: 'HIGH ROLLER BANK', bet: 1000, isSystem: true }
+        ];
+
         window.App = {
             state: {
                 user: { id: 0, name: 'Guest', balance: 1000 },
-                role: null,
+                role: null, // 'host', 'client', 'ai'
                 game: { deck: [], dealerHand: [], playerHand: [], status: 'WAITING', bet: 100 },
-                net: null, heartbeat: null,
-                activeTab: 'games'
+                net: null, heartbeat: null, activeTab: 'games'
             },
 
             init() {
@@ -144,7 +147,6 @@
                 }
                 this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerJoin());
                 
-                // Авто-обновление списка серверов
                 setInterval(() => {
                     if(this.state.activeTab === 'servers') this.refreshLobbies();
                 }, 8000);
@@ -155,104 +157,89 @@
                 document.getElementById('pane-games').classList.toggle('hidden', t !== 'games');
                 document.getElementById('pane-servers').classList.toggle('hidden', t !== 'servers');
                 
-                // UI активной кнопки
                 const bGames = document.getElementById('tab-btn-games');
                 const bServers = document.getElementById('tab-btn-servers');
                 
                 if(t === 'games') {
-                    bGames.className = "flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs tracking-widest";
-                    bServers.className = "flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs tracking-widest";
+                    bGames.className = "flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs tracking-widest transition-all";
+                    bServers.className = "flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs tracking-widest transition-all";
                 } else {
-                    bGames.className = "flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs tracking-widest";
-                    bServers.className = "flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs tracking-widest";
+                    bGames.className = "flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs tracking-widest transition-all";
+                    bServers.className = "flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs tracking-widest transition-all";
                     this.refreshLobbies();
                 }
-            },
-
-            async openCreateLobby() {
-                const bet = prompt("ENTER YOUR BET (CASH):", "100");
-                if(!bet || isNaN(bet) || bet <= 0) return;
-
-                this.state.role = 'host';
-                this.state.game.bet = parseInt(bet);
-                this.showView('game');
-                document.getElementById('game-id-label').innerText = `ID: metro_${this.state.user.id}`;
-                
-                const publish = () => {
-                    const text = `#METRO_LOBBY|ID:metro_${this.state.user.id}|USER:${this.state.user.name}|BET:${this.state.game.bet}`;
-                    MetroAPI.sendMessage(CHANNEL_ID, text);
-                };
-                
-                publish();
-                if(this.state.heartbeat) clearInterval(this.state.heartbeat);
-                this.state.heartbeat = setInterval(publish, 45000);
             },
 
             async refreshLobbies() {
                 const list = document.getElementById('server-list');
                 const updates = await MetroAPI.getUpdates();
                 
-                // Собираем все лобби и дедуплицируем по ID
-                const lobbiesMap = new Map();
-                
+                const dynamicLobbies = new Map();
                 updates.forEach(u => {
                     const msg = u.channel_post || u.message;
                     if(!msg) return;
-                    
                     const lobby = MetroAPI.parseLobby(msg.text, msg.date);
-                    if(lobby) {
-                        // Сохраняем только самое свежее сообщение для каждого ID
-                        const existing = lobbiesMap.get(lobby.id);
-                        if(!existing || lobby.timestamp > existing.timestamp) {
-                            lobbiesMap.set(lobby.id, lobby);
-                        }
+                    if(lobby && lobby.id !== `metro_${this.state.user.id}`) {
+                        const existing = dynamicLobbies.get(lobby.id);
+                        if(!existing || lobby.timestamp > existing.timestamp) dynamicLobbies.set(lobby.id, lobby);
                     }
                 });
 
-                const items = Array.from(lobbiesMap.values());
+                // Объединяем системные и динамические
+                const allLobbies = [...DEFAULT_SERVERS, ...Array.from(dynamicLobbies.values())];
                 
-                if(items.length === 0) {
-                    list.innerHTML = `
-                        <div class="flex flex-col items-center justify-center py-20 opacity-30">
-                            <p class="text-xs uppercase tracking-[0.2em]">No active signals found...</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                list.innerHTML = items.map(i => `
-                    <div onclick="App.joinTable('${i.id}', ${i.bet})" class="server-entry glass p-5 rounded-2xl flex justify-between items-center border border-transparent active:scale-95 cursor-pointer">
+                list.innerHTML = allLobbies.map(i => `
+                    <div onclick="App.joinTable('${i.id}', ${i.bet}, ${!!i.isSystem})" class="server-entry glass p-5 rounded-2xl flex justify-between items-center border border-transparent active:scale-95 cursor-pointer">
                         <div class="flex items-center gap-4">
                             <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-emerald-500 font-bold border border-emerald-500/20">
-                                ${i.user[0].toUpperCase()}
+                                ${i.isSystem ? 'M' : i.user[0].toUpperCase()}
                             </div>
                             <div>
-                                <div class="font-bold text-white tracking-tight">${i.user}'s Table</div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-white tracking-tight">${i.user}</span>
+                                    ${i.isSystem ? '<span class="system-badge">OFFICIAL</span>' : ''}
+                                </div>
                                 <div class="flex items-center gap-1.5">
                                     <div class="pulse-dot"></div>
-                                    <span class="text-[9px] text-emerald-500 font-bold uppercase tracking-widest">Live</span>
+                                    <span class="text-[9px] text-emerald-500 font-bold uppercase tracking-widest">Available</span>
                                 </div>
                             </div>
                         </div>
                         <div class="text-right">
                             <div class="text-emerald-400 font-black text-lg">${i.bet}</div>
-                            <div class="text-[9px] text-slate-500 font-bold uppercase">Bet Amount</div>
+                            <div class="text-[9px] text-slate-500 font-bold uppercase">Min Bet</div>
                         </div>
                     </div>
                 `).join('');
             },
 
-            joinTable(id, bet) {
-                if(id === `metro_${this.state.user.id}`) {
-                    alert("You cannot join your own table.");
-                    return;
-                }
+            joinTable(id, bet, isSystem = false) {
                 tg.HapticFeedback.impactOccurred('medium');
-                this.state.role = 'client';
                 this.state.game.bet = bet;
-                this.state.net.connectTo(id);
                 this.showView('game');
-                document.getElementById('game-id-label').innerText = `TARGET: ${id}`;
+                
+                if(isSystem) {
+                    this.state.role = 'ai';
+                    document.getElementById('game-id-label').innerText = `SYSTEM_STATION: ${id.toUpperCase()}`;
+                    this.startRound(); // Для AI начинаем сразу
+                } else {
+                    this.state.role = 'client';
+                    this.state.net.connectTo(id);
+                    document.getElementById('game-id-label').innerText = `CONNECTING: ${id}`;
+                }
+            },
+
+            async openCreateLobby() {
+                const bet = prompt("ENTER YOUR BET (CASH):", "100");
+                if(!bet || isNaN(bet) || bet <= 0) return;
+                this.state.role = 'host';
+                this.state.game.bet = parseInt(bet);
+                this.showView('game');
+                document.getElementById('game-id-label').innerText = `ID: metro_${this.state.user.id}`;
+                const publish = () => MetroAPI.sendMessage(CHANNEL_ID, `#METRO_LOBBY|ID:metro_${this.state.user.id}|USER:${this.state.user.name}|BET:${this.state.game.bet}`);
+                publish();
+                if(this.state.heartbeat) clearInterval(this.state.heartbeat);
+                this.state.heartbeat = setInterval(publish, 45000);
             },
 
             onPeerJoin() {
@@ -271,39 +258,30 @@
                     dealerHand: [deck.pop(), deck.pop()],
                     status: 'PLAYER_TURN'
                 };
-                this.sync();
+                if(this.state.role !== 'ai') this.sync();
+                else this.render();
             },
 
             onNetMsg(msg) {
-                if(msg.type === 'SYNC') { 
-                    this.state.game = msg.game; 
-                    this.render(); 
-                }
-                if(msg.type === 'ACTION' && this.state.role === 'host') {
-                    this.handleAction(msg.act);
-                }
+                if(msg.type === 'SYNC') { this.state.game = msg.game; this.render(); }
+                if(msg.type === 'ACTION' && this.state.role === 'host') this.handleAction(msg.act);
             },
 
             handleAction(act) {
                 if(act === 'HIT') {
                     this.state.game.playerHand.push(this.state.game.deck.pop());
-                    if(Blackjack.getScore(this.state.game.playerHand) > 21) {
-                        this.state.game.status = 'END';
-                    }
+                    if(Blackjack.getScore(this.state.game.playerHand) > 21) this.state.game.status = 'END';
                 } else {
                     this.state.game.status = 'DEALER_TURN';
-                    while(Blackjack.getScore(this.state.game.dealerHand) < 17) {
-                        this.state.game.dealerHand.push(this.state.game.deck.pop());
-                    }
+                    while(Blackjack.getScore(this.state.game.dealerHand) < 17) this.state.game.dealerHand.push(this.state.game.deck.pop());
                     this.state.game.status = 'END';
                 }
-                this.sync();
+                
+                if(this.state.role !== 'ai') this.sync();
+                else this.render();
             },
 
-            sync() { 
-                this.state.net.send('SYNC', { game: this.state.game }); 
-                this.render(); 
-            },
+            sync() { this.state.net.send('SYNC', { game: this.state.game }); this.render(); },
 
             gameHit() { 
                 tg.HapticFeedback.impactOccurred('light');
@@ -319,8 +297,7 @@
 
             render() {
                 const g = this.state.game;
-                const isPlayerTurn = g.status === 'PLAYER_TURN';
-                const hideDealer = isPlayerTurn && this.state.role === 'client';
+                const hideDealer = g.status === 'PLAYER_TURN' && (this.state.role === 'client' || this.state.role === 'ai');
                 
                 document.getElementById('player-cards').innerHTML = g.playerHand.map(c => this.cardTpl(c)).join('');
                 document.getElementById('dealer-cards').innerHTML = g.dealerHand.map((c, i) => 
@@ -329,39 +306,27 @@
                 
                 document.getElementById('player-score').innerText = Blackjack.getScore(g.playerHand);
                 document.getElementById('dealer-score').innerText = hideDealer ? '?' : Blackjack.getScore(g.dealerHand);
-                
                 document.getElementById('game-actions').classList.toggle('hidden', g.status !== 'PLAYER_TURN');
                 document.getElementById('game-status-label').innerText = g.status.replace('_', ' ');
 
-                if(g.status === 'END') {
-                    setTimeout(() => this.showResult(), 800);
-                }
+                if(g.status === 'END') setTimeout(() => this.showResult(), 800);
             },
 
             cardTpl(c) {
                 const isRed = ['♥', '♦'].includes(c.suit);
-                return `
-                    <div class="card-ui ${isRed ? 'card-red' : ''} shadow-2xl animate-in zoom-in duration-300">
-                        <span class="text-[10px] self-start ml-1 mt-1">${c.value}</span>
-                        <span class="text-2xl my-auto">${c.suit}</span>
-                        <span class="text-[10px] self-end mr-1 mb-1 rotate-180">${c.value}</span>
-                    </div>`;
+                return `<div class="card-ui ${isRed ? 'card-red' : ''}"><span class="text-[10px] self-start ml-1 mt-1">${c.value}</span><span class="text-2xl my-auto">${c.suit}</span></div>`;
             },
 
             showResult() {
                 const p = Blackjack.getScore(this.state.game.playerHand);
                 const d = Blackjack.getScore(this.state.game.dealerHand);
-                let m = "";
-                let color = "text-white";
-
+                let m = ""; let color = "text-white";
                 if(p > 21) { m = "BUSTED"; color = "text-red-500"; }
                 else if(d > 21 || p > d) { m = "YOU WIN"; color = "text-emerald-400"; tg.HapticFeedback.notificationOccurred('success'); }
                 else if(p === d) { m = "PUSH"; color = "text-slate-400"; }
                 else { m = "DEALER WINS"; color = "text-red-400"; }
-
-                const el = document.getElementById('result-msg');
-                el.innerText = m;
-                el.className = `text-6xl font-black mb-10 tracking-tighter italic ${color}`;
+                document.getElementById('result-msg').innerText = m;
+                document.getElementById('result-msg').className = `text-6xl font-black mb-10 tracking-tighter italic ${color}`;
                 document.getElementById('result-overlay').classList.remove('hidden');
             },
 
@@ -370,27 +335,21 @@
                 document.getElementById(`view-${v}`).classList.remove('hidden');
             },
 
-            openPay(type) {
-                document.getElementById('pay-title').innerText = type;
-                document.getElementById('pay-extra-fields').classList.toggle('hidden', type === 'DEPOSIT');
+            openPay(t) {
+                document.getElementById('pay-title').innerText = t;
+                document.getElementById('pay-extra-fields').classList.toggle('hidden', t === 'DEPOSIT');
                 document.getElementById('modal-pay').classList.remove('hidden');
             },
 
             async submitPayment() {
                 const amt = document.getElementById('pay-amount').value;
                 const info = document.getElementById('pay-details').value;
-                if(!amt || amt <= 0) return alert("Enter valid amount");
-
                 const text = `#PAY_REQ|TYPE:${document.getElementById('pay-title').innerText}|USER:${this.state.user.name}|ID:${this.state.user.id}|AMT:${amt}|INFO:${info || 'N/A'}`;
-                
                 tg.MainButton.showProgress();
-                const res = await MetroAPI.sendMessage(CHANNEL_ID, text);
+                await MetroAPI.sendMessage(CHANNEL_ID, text);
                 tg.MainButton.hideProgress();
-                
-                if(res) {
-                    alert("Request sent! Admin will process it soon.");
-                    document.getElementById('modal-pay').classList.add('hidden');
-                }
+                alert("Request sent!");
+                document.getElementById('modal-pay').classList.add('hidden');
             }
         };
 
