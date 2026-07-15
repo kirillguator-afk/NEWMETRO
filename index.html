@@ -16,6 +16,7 @@
         .card-red { color: #ef4444; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .btn-disabled { opacity: 0.5; pointer-events: none; }
+        .avatar-placeholder { background: #1e293b; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #10b981; border-radius: 50%; }
     </style>
 </head>
 <body class="h-screen w-full flex flex-col">
@@ -30,7 +31,7 @@
     <div id="view-home" class="view flex-1 flex flex-col p-5 overflow-y-auto">
         <div class="flex items-center gap-4 mb-6 glass p-4 rounded-2xl">
             <div class="relative cursor-pointer" id="avatar-trigger">
-                <div id="ui-avatar" class="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-xl font-bold overflow-hidden border-2 border-emerald-500/30">?</div>
+                <div id="ui-avatar" class="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-500/30"></div>
             </div>
             <div class="flex-1">
                 <h2 id="ui-name" class="text-white font-bold">Guest</h2>
@@ -100,8 +101,15 @@
                 isProcessing: false
             },
 
+            // Utility для санитизации HTML
+            esc(str) {
+                if (!str) return '';
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            },
+
             async init() {
-                // [CRITICAL] Всегда вызываем tg.ready() сразу для предотвращения черного экрана
                 tg.ready();
                 tg.expand();
 
@@ -115,19 +123,18 @@
                         if(prof && prof.avatarUrl) this.updateAvatarUI(prof.avatarUrl);
                     }
                     
-                    // Инициализация сети с обработчиком ошибок
                     this.state.net = new MetroNetwork(
                         this.state.user.id, 
                         (d) => this.onNetMsg(d), 
                         () => this.onPeerReady(),
                         (err) => {
                             console.error("Net error", err);
-                            // Если PeerJS не может стартануть, показываем предупреждение, но не вешаем UI
-                            tg.showAlert("P2P Signaling Unavailable. Multiplayer functions limited.");
+                            tg.showAlert("P2P Signaling Unavailable.");
                         }
                     );
                     
                     this.setupHandlers();
+                    this.updateAvatarUI(this.state.user.avatarUrl); // Initial placeholder
                 } catch (e) {
                     console.error("Init failed", e);
                 }
@@ -155,14 +162,21 @@
             },
 
             updateAvatarUI(url) {
-                this.state.user.avatarUrl = url;
                 const container = document.getElementById('ui-avatar');
                 if(!container) return;
+                
                 container.innerHTML = '';
-                const img = document.createElement('img');
-                img.src = url;
-                img.className = 'w-full h-full object-cover';
-                container.appendChild(img);
+                if(url) {
+                    const img = new Image();
+                    img.src = url;
+                    img.className = 'w-full h-full object-cover';
+                    container.appendChild(img);
+                } else {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'w-full h-full avatar-placeholder';
+                    placeholder.textContent = this.state.user.name ? this.state.user.name[0] : '?';
+                    container.appendChild(placeholder);
+                }
             },
 
             setTab(t) {
@@ -178,25 +192,38 @@
                 if(t === 'servers') this.refreshLobbies();
             },
 
+            // [PERFORMANCE] Оптимизированный рендеринг списка через DocumentFragment
             async refreshLobbies() {
                 const listEl = document.getElementById('server-list');
                 const labs = await MetroAPI.getLobbies();
-                listEl.innerHTML = '';
+                
+                const fragment = document.createDocumentFragment();
                 labs.forEach(i => {
                     const row = document.createElement('div');
-                    row.className = 'glass p-5 rounded-2xl flex justify-between items-center cursor-pointer active:scale-95 transition-all';
+                    row.className = 'glass p-5 rounded-2xl flex justify-between items-center cursor-pointer active:scale-[0.98] transition-all';
                     row.onclick = () => this.joinTable(i.id);
+                    
                     row.innerHTML = `
                         <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden border border-white/10 flex items-center justify-center">
-                                ${i.avatar ? `<img src="${i.avatar}" class="w-full h-full object-cover">` : i.user[0]}
+                            <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden border border-white/10 flex items-center justify-center avatar-slot">
+                                ${!i.avatar ? `<span class="text-emerald-500 font-bold">${this.esc(i.user[0])}</span>` : ''}
                             </div>
-                            <div class="font-bold text-white tracking-tight">${i.user}</div>
+                            <div class="font-bold text-white tracking-tight">${this.esc(i.user)}</div>
                         </div>
-                        <div class="text-emerald-400 font-black text-lg">${i.bet}</div>
+                        <div class="text-emerald-400 font-black text-lg">${parseInt(i.bet)}</div>
                     `;
-                    listEl.appendChild(row);
+                    
+                    if(i.avatar) {
+                        const img = new Image();
+                        img.src = i.avatar;
+                        img.className = 'w-full h-full object-cover';
+                        row.querySelector('.avatar-slot').appendChild(img);
+                    }
+                    
+                    fragment.appendChild(row);
                 });
+                
+                listEl.replaceChildren(fragment);
             },
 
             async openCreateLobby() {
@@ -263,27 +290,52 @@
                 if(msg.type === 'UPDATE_SIGNAL') this.syncState();
             },
 
+            // [PERFORMANCE] Оптимизированный рендеринг карт
             render() {
                 const g = this.state.game;
                 if(!g) return;
+                
                 const isEnd = g.status === 'END';
                 const showFullDealer = isEnd || g.status === 'DEALER_TURN';
-                document.getElementById('player-cards').innerHTML = g.playerHand.map(c => this.cardTpl(c)).join('');
-                document.getElementById('dealer-cards').innerHTML = g.dealerHand.map((c, i) => 
-                    (i === 0 && !showFullDealer) ? `<div class="card-ui bg-slate-900 border border-white/5"><div class="w-full h-full opacity-10 bg-gradient-to-br from-white to-transparent rounded-lg"></div></div>` : this.cardTpl(c)
-                ).join('');
+                
+                const pSlot = document.getElementById('player-cards');
+                const dSlot = document.getElementById('dealer-cards');
+
+                // Отрисовка карт игрока
+                const pFrag = document.createDocumentFragment();
+                g.playerHand.forEach(c => pFrag.appendChild(this.createCardEl(c)));
+                pSlot.replaceChildren(pFrag);
+
+                // Отрисовка карт дилера
+                const dFrag = document.createDocumentFragment();
+                g.dealerHand.forEach((c, i) => {
+                    if (i === 0 && !showFullDealer) {
+                        const back = document.createElement('div');
+                        back.className = 'card-ui bg-slate-900 border border-white/5';
+                        back.innerHTML = '<div class="w-full h-full opacity-10 bg-gradient-to-br from-white to-transparent rounded-lg"></div>';
+                        dFrag.appendChild(back);
+                    } else {
+                        dFrag.appendChild(this.createCardEl(c));
+                    }
+                });
+                dSlot.replaceChildren(dFrag);
+
                 document.getElementById('player-score').textContent = `YOU: ${g.playerScore}`;
                 document.getElementById('dealer-score').textContent = `DEALER: ${g.dealerScore}`;
                 document.getElementById('game-actions').classList.toggle('hidden', g.status !== 'PLAYER_TURN');
+                
                 if(isEnd) setTimeout(() => this.showResult(), 800);
             },
 
-            cardTpl(c) {
+            createCardEl(c) {
+                const el = document.createElement('div');
                 const isRed = ['♥', '♦'].includes(c.suit);
-                return `<div class="card-ui ${isRed?'card-red':''}">
-                    <span class="text-[9px] absolute top-1 left-1.5 font-black">${c.value}</span>
-                    <span class="text-2xl my-auto">${c.suit}</span>
-                </div>`;
+                el.className = `card-ui ${isRed ? 'card-red' : ''}`;
+                el.innerHTML = `
+                    <span class="text-[9px] absolute top-1 left-1.5 font-black">${this.esc(c.value)}</span>
+                    <span class="text-2xl my-auto">${this.esc(c.suit)}</span>
+                `;
+                return el;
             },
 
             showResult() {

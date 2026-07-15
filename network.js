@@ -42,6 +42,20 @@ export class MetroNetwork {
         }
     }
 
+    // [RESOURCE MANAGEMENT] Корректная терминация всех сетевых ресурсов
+    destroy() {
+        if (this.conn) {
+            this.conn.close();
+            this.conn = null;
+        }
+        if (this.peer) {
+            this.peer.disconnect();
+            this.peer.destroy();
+            this.peer = null;
+        }
+        console.log("MetroNetwork: Cleanup complete.");
+    }
+
     connectTo(targetId) {
         if (this.conn) this.conn.close();
         this.conn = this.peer.connect(targetId, { reliable: true });

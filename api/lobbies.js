@@ -16,18 +16,15 @@ export default async function handler(req, res) {
         const { id, bet, avatar } = req.body;
         if (!id) return res.status(400).json({ error: 'Lobby ID required' });
         
-        // [ANTI-SPAM] Проверяем, нет ли уже созданного лобби от этого пользователя
         const userActiveKey = `active_user_lobby:${tgUser.id}`;
         const existingLobbyId = await kv.get(userActiveKey);
         
         if (existingLobbyId && existingLobbyId !== id) {
-            // Удаляем старое лобби перед созданием нового
             await kv.del(`lobby:${existingLobbyId}`);
             await kv.srem('active_lobbies_set', `lobby:${existingLobbyId}`);
         }
 
         const lobbyKey = `lobby:${id}`;
-        // Строгая санитизация имени (только буквы, цифры и пробелы)
         const safeName = tgUser.first_name.replace(/[^\w\sа-яА-Я]/gi, '').substring(0, 20);
 
         const payload = {
@@ -49,10 +46,14 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
+        // [OPTIMIZATION] Ограничиваем выборку для стабильности при росте аудитории
         const keys = await kv.smembers('active_lobbies_set');
-        if (keys.length === 0) return res.status(200).json([]);
+        if (!keys || keys.length === 0) return res.status(200).json([]);
         
-        const lobbies = await kv.mget(...keys);
+        // Берем последние 50 созданных лобби
+        const limitedKeys = keys.slice(-50);
+        const lobbies = await kv.mget(...limitedKeys);
+        
         const validLobbies = [];
         const deadKeys = [];
 
@@ -60,13 +61,13 @@ export default async function handler(req, res) {
             if (lobby) {
                 validLobbies.push(lobby);
             } else {
-                deadKeys.push(keys[index]);
+                deadKeys.push(limitedKeys[index]);
             }
         });
 
-        // [CONSISTENCY] Обязательный await для очистки индекса в Redis
+        // Неблокирующая фоновая очистка "мертвых" ссылок
         if (deadKeys.length > 0) {
-            await kv.srem('active_lobbies_set', ...deadKeys);
+            kv.srem('active_lobbies_set', ...deadKeys).catch(() => {});
         }
         
         return res.status(200).json(validLobbies);

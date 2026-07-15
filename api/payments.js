@@ -3,9 +3,6 @@ import { kv } from '@vercel/kv';
 import crypto from 'crypto';
 import { verifyTelegramAuth, getUserData } from './utils/auth.js';
 
-/**
- * Nexus Prime: Платежная система с проверкой баланса
- */
 export default async function handler(req, res) {
     const initData = req.headers['x-telegram-init-data'];
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -23,17 +20,19 @@ export default async function handler(req, res) {
         const amt = parseInt(amount);
         if (!amt || amt <= 0) return res.status(400).json({ error: 'Invalid amount' });
 
-        // [SECURITY] Проверка баланса при выводе
+        // [ATOMICITY] Использование атомарного списания вместо GET -> SET
         if (payType === 'WITHDRAW') {
-            const currentBalance = await kv.get(balanceKey) || 0;
-            if (currentBalance < amt) {
+            const newBalance = await kv.decrby(balanceKey, amt);
+            if (newBalance < 0) {
+                // Возвращаем баланс назад, если он ушел в минус
+                await kv.incrby(balanceKey, amt);
                 return res.status(400).json({ error: 'Insufficient funds' });
             }
         }
 
         const rateKey = `limit:pay:${tgUser.id}`;
         const isLimited = await kv.get(rateKey);
-        if (isLimited) return res.status(429).json({ error: 'Rate limit' });
+        if (isLimited) return res.status(429).json({ error: 'Rate limit. Wait 30s.' });
 
         const txId = crypto.randomUUID();
         const payload = {
@@ -49,6 +48,7 @@ export default async function handler(req, res) {
         pipeline.set(rateKey, '1', { ex: 30 }); 
         await pipeline.exec();
 
+        // Уведомление администратора
         try {
             const text = `<b>💰 TRANSACTION</b>\nType: ${payload.payType}\nUser: ${payload.user}\nAmt: ${payload.amount}\nTX: <code>${txId}</code>`;
             await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
