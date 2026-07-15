@@ -1,10 +1,5 @@
 
-/**
- * MetroAPI - Secure Frontend Wrapper
- * Все запросы теперь включают x-telegram-init-data для серверной проверки.
- */
 const getAuthHeaders = () => ({
-    'Content-Type': 'application/json',
     'x-telegram-init-data': window.Telegram?.WebApp?.initData || ''
 });
 
@@ -12,34 +7,55 @@ export const MetroAPI = {
     async getLobbies() {
         try {
             const res = await fetch('/api/lobbies', { headers: getAuthHeaders() });
-            if (!res.ok) throw new Error('Auth failed');
             return await res.json();
-        } catch (e) {
-            return [];
-        }
+        } catch (e) { return []; }
     },
 
-    async publishLobby(userId, userName, bet) {
+    async publishLobby(userId, userName, bet, avatarUrl = null) {
         try {
-            const res = await fetch('/api/lobbies', {
+            await fetch('/api/lobbies', {
                 method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ id: userId, user: userName, bet: parseInt(bet) })
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    id: userId, 
+                    user: userName, 
+                    bet: parseInt(bet),
+                    avatar: avatarUrl 
+                })
+            });
+        } catch (e) {}
+    },
+
+    async getUserProfile() {
+        try {
+            const res = await fetch('/api/avatar/profile', { headers: getAuthHeaders() });
+            return await res.json();
+        } catch (e) { return { avatarUrl: null }; }
+    },
+
+    async uploadAvatar(file) {
+        try {
+            const res = await fetch(`/api/avatar/upload?filename=${file.name}`, {
+                method: 'POST',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': file.type
+                },
+                body: file
             });
             return await res.json();
-        } catch (e) { return null; }
+        } catch (e) {
+            console.error("Upload Error:", e);
+            return null;
+        }
     },
 
     async sendPaymentRequest(payload) {
         try {
             const res = await fetch('/api/payments', {
                 method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    amount: payload.amount,
-                    payType: payload.payType,
-                    info: payload.info
-                })
+                headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
             return await res.json();
         } catch (e) { return null; }
@@ -48,15 +64,9 @@ export const MetroAPI = {
     async getAdminPayments() {
         try {
             const res = await fetch('/api/payments', { headers: getAuthHeaders() });
-            if (!res.ok) {
-                console.error("Access Denied by Server");
-                return [];
-            }
             return await res.json();
         } catch (e) { return []; }
     }
 };
 
-// Константа OWNER_ID теперь берется из ENV на бэкенде, 
-// здесь оставляем только для UI-триггеров (но сервер все равно проверит)
-export const OWNER_ID = 123456789; 
+export const OWNER_ID = 123456789;
