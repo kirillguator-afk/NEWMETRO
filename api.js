@@ -17,12 +17,13 @@ export const MetroAPI = {
 
     async getUpdates() {
         try {
-            // Увеличиваем лимит и используем offset для получения только свежих данных
+            // Запрашиваем последние 100 обновлений. 
+            // В продакшене лучше использовать сервер-посредник, но для P2P WebApp это стандартное решение.
             const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?limit=100&allowed_updates=["channel_post","message"]`);
             const data = await response.json();
             return data.ok ? data.result : [];
         } catch (e) { 
-            console.error("Fetch updates error:", e);
+            console.error("MetroAPI: Fetch error", e);
             return []; 
         }
     },
@@ -31,7 +32,7 @@ export const MetroAPI = {
         if (!text || !text.includes('#METRO_LOBBY')) return null;
         
         const now = Math.floor(Date.now() / 1000);
-        // Сервер считается активным, если сообщение не старше 2 минут (120 сек)
+        // Лобби валидно 2 минуты (120 секунд)
         if (now - date > 120) return null; 
 
         try {
@@ -45,9 +46,11 @@ export const MetroAPI = {
                 }
             });
             
+            if (!data.ID) return null;
+
             return { 
                 id: data.ID, 
-                user: data.USER || 'Unknown Host', 
+                user: data.USER || 'Unknown Runner', 
                 bet: data.BET || '0', 
                 timestamp: date 
             };

@@ -20,6 +20,7 @@
         .pulse-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
         .system-badge { background: linear-gradient(90deg, #059669, #10b981); color: white; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; }
+        .p2p-badge { background: #3b82f6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; }
         .loader { width: 48px; height: 48px; border: 3px solid #FFF; border-bottom-color: #10b981; border-radius: 50%; display: inline-block; box-sizing: border-box; animation: rotation 1s linear infinite; }
         @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -80,6 +81,7 @@
         <div id="pane-servers" class="hidden space-y-3">
             <div id="server-list" class="space-y-3">
                 <!-- Lobbies injected here -->
+                <div class="py-10 text-center opacity-30 text-xs italic tracking-widest">INITIALIZING SCAN...</div>
             </div>
         </div>
 
@@ -153,7 +155,6 @@
                     document.getElementById('ui-avatar').innerText = u.first_name[0];
                 }
                 
-                // Инициализация сети
                 this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
                 
                 setInterval(() => {
@@ -180,19 +181,32 @@
             async refreshLobbies() {
                 const list = document.getElementById('server-list');
                 const updates = await MetroAPI.getUpdates();
+                
+                // Дедупликация: Храним только самое свежее сообщение для каждого ID хоста
                 const dynamicLobbies = new Map();
                 
                 updates.forEach(u => {
                     const msg = u.channel_post || u.message;
                     if(!msg) return;
+                    
                     const lobby = MetroAPI.parseLobby(msg.text, msg.date);
+                    // Фильтруем пустые лобби и лобби самого пользователя
                     if(lobby && lobby.id !== `metro_${this.state.user.id}`) {
                         const existing = dynamicLobbies.get(lobby.id);
-                        if(!existing || lobby.timestamp > existing.timestamp) dynamicLobbies.set(lobby.id, lobby);
+                        if(!existing || lobby.timestamp > existing.timestamp) {
+                            dynamicLobbies.set(lobby.id, lobby);
+                        }
                     }
                 });
 
+                // Объединяем системные сервера и сервера игроков
                 const allLobbies = [...DEFAULT_SERVERS, ...Array.from(dynamicLobbies.values())];
+                
+                if(allLobbies.length === 0) {
+                    list.innerHTML = '<div class="py-10 text-center opacity-30 text-xs italic tracking-widest">NO SIGNALS DETECTED</div>';
+                    return;
+                }
+
                 list.innerHTML = allLobbies.map(i => `
                     <div onclick="App.joinTable('${i.id}', ${i.bet}, ${!!i.isSystem})" class="server-entry glass p-5 rounded-2xl flex justify-between items-center border border-transparent active:scale-95 cursor-pointer">
                         <div class="flex items-center gap-4">
@@ -202,17 +216,17 @@
                             <div>
                                 <div class="flex items-center gap-2">
                                     <span class="font-bold text-white tracking-tight">${i.user}</span>
-                                    ${i.isSystem ? '<span class="system-badge">OFFICIAL</span>' : ''}
+                                    ${i.isSystem ? '<span class="system-badge">OFFICIAL</span>' : '<span class="p2p-badge">P2P</span>'}
                                 </div>
                                 <div class="flex items-center gap-1.5">
                                     <div class="pulse-dot"></div>
-                                    <span class="text-[9px] text-emerald-500 font-bold uppercase tracking-widest">Available</span>
+                                    <span class="text-[9px] text-emerald-500 font-bold uppercase tracking-widest">Online</span>
                                 </div>
                             </div>
                         </div>
                         <div class="text-right">
                             <div class="text-emerald-400 font-black text-lg">${i.bet}</div>
-                            <div class="text-[9px] text-slate-500 font-bold uppercase">Min Bet</div>
+                            <div class="text-[9px] text-slate-500 font-bold uppercase">Entry Bet</div>
                         </div>
                     </div>
                 `).join('');
@@ -231,7 +245,6 @@
                     this.state.role = 'client';
                     document.getElementById('net-overlay').classList.remove('hidden');
                     this.state.net.connectTo(id);
-                    // Вид игры переключится в onNetMsg или по таймауту/ошибке в network.js
                 }
             },
 
@@ -245,6 +258,7 @@
                 
                 const publish = () => {
                     if(this.state.role !== 'host') return;
+                    // Публикуем сообщение в канал
                     const text = `#METRO_LOBBY|ID:metro_${this.state.user.id}|USER:${this.state.user.name}|BET:${this.state.game.bet}`;
                     MetroAPI.sendMessage(CHANNEL_ID, text);
                 };
@@ -255,11 +269,8 @@
             },
 
             onPeerReady() {
-                // Вызывается когда P2P соединение установлено (для обоих сторон)
                 document.getElementById('net-overlay').classList.add('hidden');
-                if(this.state.role === 'client') {
-                    this.showView('game');
-                }
+                if(this.state.role === 'client') this.showView('game');
                 if(this.state.role === 'host') {
                     tg.HapticFeedback.notificationOccurred('success');
                     this.startRound();
@@ -280,13 +291,8 @@
             },
 
             onNetMsg(msg) {
-                if(msg.type === 'SYNC') { 
-                    this.state.game = msg.game; 
-                    this.render(); 
-                }
-                if(msg.type === 'ACTION' && this.state.role === 'host') {
-                    this.handleAction(msg.act);
-                }
+                if(msg.type === 'SYNC') { this.state.game = msg.game; this.render(); }
+                if(msg.type === 'ACTION' && this.state.role === 'host') this.handleAction(msg.act);
                 if(msg.type === 'ERROR') {
                     alert(msg.msg);
                     window.location.reload();
