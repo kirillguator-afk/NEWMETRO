@@ -1,0 +1,19 @@
+
+{
+  "version": 2,
+  "framework": null,
+  "rewrites": [
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/game", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "ALLOW-FROM https://t.me/" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self' https://*.telegram.org https://*.vercel-storage.com https://unpkg.com 'unsafe-inline' 'unsafe-eval' wss://*.peerjs.com https://*.peerjs.com https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https://*.vercel-storage.com https://*.telegram.org;" }
+      ]
+    }
+  ]
+}
