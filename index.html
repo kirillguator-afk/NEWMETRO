@@ -1,7 +1,7 @@
 
-
-
-
+<!DOCTYPE html>
+<html lang="ru">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>METRO CASH</title>
@@ -15,11 +15,10 @@
         .card-ui { width: 55px; height: 80px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; position: relative; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
         .card-red { color: #ef4444; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .pulse-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .btn-disabled { opacity: 0.5; pointer-events: none; }
     </style>
-
-
+</head>
+<body class="h-screen w-full flex flex-col">
 
     <input type="file" id="avatar-input" class="hidden" accept="image/png,image/jpeg,image/webp">
 
@@ -94,11 +93,11 @@
         const App = {
             state: {
                 user: { id: 0, name: 'Guest', avatarUrl: null },
-                role: null, 
                 game: null,
                 lobbyId: null,
                 net: null,
-                activeTab: 'games'
+                activeTab: 'games',
+                isProcessing: false // [UX] Anti-double click flag
             },
 
             async init() {
@@ -199,9 +198,12 @@
             async openCreateLobby() {
                 const b = prompt("BET AMOUNT:", "100");
                 if(!b) return;
-                this.state.role = 'host';
                 this.state.lobbyId = this.state.net.peerId;
                 const game = await MetroAPI.startGame(this.state.lobbyId, b);
+                if(game.error) {
+                    tg.showAlert(game.error);
+                    return;
+                }
                 this.state.game = game;
                 this.showView('game');
                 this.render();
@@ -209,7 +211,6 @@
             },
 
             async joinTable(id) {
-                this.state.role = 'client';
                 this.state.lobbyId = id;
                 document.getElementById('net-overlay').classList.remove('hidden');
                 this.state.net.connectTo(id);
@@ -217,7 +218,7 @@
 
             onPeerReady() {
                 document.getElementById('net-overlay').classList.add('hidden');
-                if(this.state.role === 'client') {
+                if(!this.state.game) {
                     this.showView('game');
                     this.syncState();
                 }
@@ -232,17 +233,35 @@
             },
 
             async gameAction(act) {
+                if(this.state.isProcessing) return;
+                this.setControlsActive(false);
+
                 const currentTurn = this.state.game?.turnCount || 1;
                 const newState = await MetroAPI.performAction(this.state.lobbyId, act, currentTurn);
                 
                 if(newState.error) {
                     tg.showAlert(newState.error);
                     if(newState.error.includes('Syncing')) this.syncState();
+                    this.setControlsActive(true);
                     return;
                 }
                 this.state.game = newState;
                 this.state.net.send('UPDATE_SIGNAL');
                 this.render();
+                this.setControlsActive(true);
+            },
+
+            setControlsActive(active) {
+                this.state.isProcessing = !active;
+                const hit = document.getElementById('btn-hit');
+                const std = document.getElementById('btn-stand');
+                if(active) {
+                    hit.classList.remove('btn-disabled');
+                    std.classList.remove('btn-disabled');
+                } else {
+                    hit.classList.add('btn-disabled');
+                    std.classList.add('btn-disabled');
+                }
             },
 
             onNetMsg(msg) {
@@ -263,7 +282,6 @@
                     (i === 0 && !showFullDealer) ? `<div class="card-ui bg-slate-900 border border-white/5"><div class="w-full h-full opacity-10 bg-gradient-to-br from-white to-transparent rounded-lg"></div></div>` : this.cardTpl(c)
                 ).join('');
 
-                // [DRY FIX] Используем очки с сервера
                 document.getElementById('player-score').textContent = `YOU: ${g.playerScore}`;
                 document.getElementById('dealer-score').textContent = `DEALER: ${g.dealerScore}`;
                 
@@ -302,5 +320,5 @@
 
         window.onload = () => App.init();
     </script>
-
-
+</body>
+</html>

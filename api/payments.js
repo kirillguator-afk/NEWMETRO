@@ -18,7 +18,6 @@ export default async function handler(req, res) {
         const { amount, payType, info } = req.body;
         if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
 
-        // [SECURITY] Простейший Rate Limit на транзакции (1 в 30 секунд)
         const rateKey = `limit:pay:${tgUser.id}`;
         const isLimited = await kv.get(rateKey);
         if (isLimited) return res.status(429).json({ error: 'Please wait before next request' });
@@ -35,11 +34,10 @@ export default async function handler(req, res) {
             ts: Date.now()
         };
 
-        // [DURABILITY] Используем транзакционную модель вместо очереди ltrim
         const pipeline = kv.pipeline();
         pipeline.set(`tx:${txId}`, payload);
         pipeline.lpush('all_tx_index', txId);
-        pipeline.set(rateKey, '1', { ex: 30 }); // Rate limit 30s
+        pipeline.set(rateKey, '1', { ex: 30 }); 
         await pipeline.exec();
 
         try {
@@ -57,15 +55,26 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
         if (tgUser.id !== ownerId) return res.status(403).json({ error: 'Forbidden' });
 
-        // Получаем последние 50 ID транзакций
         const txIds = await kv.lrange('all_tx_index', 0, 49);
         if (txIds.length === 0) return res.status(200).json([]);
 
-        // Загружаем данные по каждому ID
         const keys = txIds.map(id => `tx:${id}`);
-        const payments = await kv.mget(...keys);
+        const rawPayments = await kv.mget(...keys);
         
-        return res.status(200).json(payments.filter(p => p !== null));
+        // [PRIVACY] Очищаем метаданные перед отправкой админу
+        const cleanPayments = rawPayments
+            .filter(Boolean)
+            .map(p => ({
+                txId: p.txId,
+                id: p.id,
+                user: p.user,
+                amount: p.amount,
+                payType: p.payType,
+                info: p.info,
+                ts: p.ts
+            }));
+            
+        return res.status(200).json(cleanPayments);
     }
 
     return res.status(405).end();

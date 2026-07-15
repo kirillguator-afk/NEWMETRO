@@ -17,6 +17,18 @@ export default async function handler(req, res) {
     const gameKey = `game_session:${lobbyId}`;
 
     if (action === 'START') {
+        // [SECURITY] Проверка владения лобби перед запуском игры
+        const lobby = await kv.get(`lobby:${lobbyId}`);
+        if (!lobby || lobby.hostId !== tgUser.id) {
+            return res.status(403).json({ error: 'Unauthorized: You are not the host of this table' });
+        }
+
+        // Проверка: нет ли уже активной игры
+        const existingGame = await kv.get(gameKey);
+        if (existingGame && existingGame.status !== 'END') {
+            return res.status(409).json({ error: 'Game already in progress' });
+        }
+
         const deck = BlackjackEngine.createDeck();
         const playerHand = [deck.pop(), deck.pop()];
         const dealerHand = [deck.pop(), deck.pop()];
@@ -31,7 +43,6 @@ export default async function handler(req, res) {
             turnCount: 1
         };
         
-        // Auto-win check (Natural Blackjack)
         if (BlackjackEngine.getScore(playerHand) === 21) {
             gameState.status = 'END';
         }
@@ -55,19 +66,14 @@ export default async function handler(req, res) {
 
     if (action === 'HIT') {
         if (state.status === 'PLAYER_TURN') {
-            const currentScore = BlackjackEngine.getScore(state.playerHand);
-            
-            // [SAFETY] Не даем добирать, если уже 21 или больше
-            if (currentScore >= 21) {
+            if (BlackjackEngine.getScore(state.playerHand) >= 21) {
                 return res.status(400).json({ error: 'Cannot hit with current score' });
             }
 
             state.playerHand.push(state.deck.pop());
             state.turnCount++;
             
-            const newScore = BlackjackEngine.getScore(state.playerHand);
-            if (newScore >= 21) {
-                // Если перебор или ровно 21 - ход завершается
+            if (BlackjackEngine.getScore(state.playerHand) >= 21) {
                 state.status = 'DEALER_TURN';
                 processDealerPlay(state);
             }
@@ -89,11 +95,7 @@ export default async function handler(req, res) {
     return res.status(200).json(formatResponse(state));
 }
 
-/**
- * Логика игры дилера
- */
 function processDealerPlay(state) {
-    // Дилер добирает до 17 (включая soft 17 по классике)
     while (BlackjackEngine.getScore(state.dealerHand) < 17) {
         state.dealerHand.push(state.deck.pop());
     }
