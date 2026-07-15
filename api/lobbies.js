@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     const initData = req.headers['x-telegram-init-data'];
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
-    if (!verifyTelegramAuth(initData, botToken)) {
+    if (!await verifyTelegramAuth(initData, botToken)) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
@@ -17,21 +17,17 @@ export default async function handler(req, res) {
         if (!id) return res.status(400).json({ error: 'Lobby ID is required' });
         
         const lobbyKey = `lobby:${id}`;
-        
-        // [SECURITY] Берем имя только из tgUser (initData), а не из body
-        // Санитизируем, убирая потенциальные HTML теги
         const safeName = tgUser.first_name.replace(/[<>]/g, '').substring(0, 25);
 
         const payload = {
             id,
-            hostId: tgUser.id, // Сохраняем владельца для проверки прав
+            hostId: tgUser.id,
             user: safeName,
             bet: Math.max(0, parseInt(bet) || 0),
             avatar: avatar || null,
             ts: Date.now()
         };
 
-        // [PERFORMANCE] Используем Pipeline для атомарности и скорости
         const pipeline = kv.pipeline();
         pipeline.set(lobbyKey, payload, { ex: 600 });
         pipeline.sadd('active_lobbies_set', lobbyKey);
@@ -45,20 +41,22 @@ export default async function handler(req, res) {
         if (keys.length === 0) return res.status(200).json([]);
         
         const lobbies = await kv.mget(...keys);
+        
+        // [OPTIMIZATION] Фильтруем протухшие ключи без блокировки
         const validLobbies = [];
-        const expiredKeys = [];
+        const deadKeys = [];
 
         lobbies.forEach((lobby, index) => {
             if (lobby) {
                 validLobbies.push(lobby);
             } else {
-                expiredKeys.push(keys[index]);
+                deadKeys.push(keys[index]);
             }
         });
 
-        // Очистка сетки от удаленных/протухших ключей
-        if (expiredKeys.length > 0) {
-            await kv.srem('active_lobbies_set', ...expiredKeys);
+        // Очищаем индекс от пустых ссылок в фоне
+        if (deadKeys.length > 0) {
+            kv.srem('active_lobbies_set', ...deadKeys).catch(() => {});
         }
         
         return res.status(200).json(validLobbies);

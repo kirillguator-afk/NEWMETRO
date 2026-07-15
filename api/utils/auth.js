@@ -1,10 +1,11 @@
 
 import crypto from 'crypto';
+import { kv } from '@vercel/kv';
 
 /**
- * Верификация данных Telegram Web App с защитой от Replay-атак
+ * Верификация данных Telegram Web App с защитой от Replay-атак через KV
  */
-export function verifyTelegramAuth(initData, botToken) {
+export async function verifyTelegramAuth(initData, botToken) {
     if (!initData || !botToken) return false;
 
     try {
@@ -12,10 +13,14 @@ export function verifyTelegramAuth(initData, botToken) {
         const hash = urlParams.get('hash');
         if (!hash) return false;
         
+        // [SECURITY] Replay Attack Protection
+        // Проверяем, не использовался ли этот хеш за последние 5 минут
+        const replayKey = `replay:${hash}`;
+        const isUsed = await kv.get(replayKey);
+        if (isUsed) return false;
+
         urlParams.delete('hash');
 
-        // [SECURITY] Проверка "свежести" (300 секунд / 5 минут)
-        // 60 секунд было слишком мало для медленного мобильного интернета
         const authDate = parseInt(urlParams.get('auth_date'));
         const now = Math.floor(Date.now() / 1000);
         if (!authDate || (now - authDate) > 300) {
@@ -34,7 +39,12 @@ export function verifyTelegramAuth(initData, botToken) {
             .update(dataCheckString)
             .digest('hex');
 
-        return hmac === hash;
+        if (hmac === hash) {
+            // Помечаем хеш как использованный на время жизни окна валидации
+            await kv.set(replayKey, '1', { ex: 300 });
+            return true;
+        }
+        return false;
     } catch (e) {
         return false;
     }
