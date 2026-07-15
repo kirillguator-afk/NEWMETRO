@@ -3,31 +3,24 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>METRO ADMIN</title>
+    <title>METRO ADMIN - Vercel Database</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-white p-6 font-sans">
-    <header class="flex justify-between items-center mb-10">
-        <h1 class="text-2xl font-black text-emerald-500 tracking-tighter">METRO_OPS</h1>
-        <div id="admin-id" class="text-[10px] bg-white/5 px-3 py-1 rounded-full opacity-50 font-mono">---</div>
-    </header>
+    <h1 class="text-2xl font-black text-emerald-500 mb-10 tracking-tighter">METRO_OPS</h1>
     
     <div id="admin-content" class="hidden">
-        <div id="list" class="space-y-4">Scanning blockchain...</div>
+        <div id="list" class="space-y-4">Fetching from Redis...</div>
     </div>
 
     <div id="access-denied" class="hidden text-center py-20">
-        <div class="text-6xl mb-4">🔒</div>
-        <h2 class="text-xl font-bold">UNAUTHORIZED ACCESS</h2>
-        <p class="text-slate-500 text-sm mt-2">Your ID is not in the whitelist.</p>
+        <h2 class="text-xl font-bold text-red-500">ACCESS DENIED</h2>
     </div>
 
     <script type="module">
         import { MetroAPI, OWNER_ID } from './api.js';
-        
         const tg = window.Telegram.WebApp;
-        const listEl = document.getElementById('list');
 
         async function init() {
             tg.ready();
@@ -38,41 +31,22 @@
                 return;
             }
 
-            document.getElementById('admin-id').innerText = `ADMIN: ${user.id}`;
             document.getElementById('admin-content').classList.remove('hidden');
             load();
-            setInterval(load, 15000);
+            setInterval(load, 10000);
         }
 
         async function load() {
-            const updates = await MetroAPI.getUpdates();
-            const reqs = updates.map(u => {
-                const msg = u.channel_post || u.message;
-                return MetroAPI.parseData(msg?.text, msg?.date);
-            }).filter(x => x && x.type === 'PAY_REQ');
-
-            if (reqs.length === 0) {
-                listEl.innerHTML = "<div class='text-center opacity-30 italic'>Queue empty</div>";
-                return;
-            }
-
-            listEl.innerHTML = reqs.reverse().map(r => `
+            const reqs = await MetroAPI.getAdminPayments();
+            document.getElementById('list').innerHTML = reqs.map(r => `
                 <div class="p-6 bg-slate-900 border border-white/5 rounded-2xl">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold tracking-widest ${r.payType==='DEPOSIT'?'text-emerald-400':'text-orange-400'}">${r.payType}</span>
-                            <h3 class="text-xl font-bold">${r.amount} CASH</h3>
-                        </div>
-                        <button class="p-2 bg-white/5 rounded-lg">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>
-                        </button>
+                    <div class="flex justify-between">
+                        <span class="text-xs font-bold ${r.payType==='DEPOSIT'?'text-emerald-400':'text-orange-400'}">${r.payType}</span>
+                        <span class="font-bold">${r.amount} CASH</span>
                     </div>
-                    <div class="text-xs text-slate-400 space-y-1 font-mono">
-                        <div>FROM: ${r.user} (ID: ${r.id})</div>
-                        <div>INFO: ${r.info}</div>
-                    </div>
+                    <div class="text-[10px] text-slate-500 mt-2">USER: ${r.user} (${r.id})</div>
                 </div>
-            `).join('');
+            `).join('') || "No requests.";
         }
 
         init();
