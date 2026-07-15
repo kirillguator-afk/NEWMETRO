@@ -1,16 +1,20 @@
 
 /**
- * MetroAPI - Frontend Wrapper for Vercel Backend
- * Все запросы теперь идут на наши Serverless функции.
- * Токены больше не нужны на фронтенде.
+ * MetroAPI - Secure Frontend Wrapper
+ * Все запросы теперь включают x-telegram-init-data для серверной проверки.
  */
+const getAuthHeaders = () => ({
+    'Content-Type': 'application/json',
+    'x-telegram-init-data': window.Telegram?.WebApp?.initData || ''
+});
+
 export const MetroAPI = {
     async getLobbies() {
         try {
-            const res = await fetch('/api/lobbies');
+            const res = await fetch('/api/lobbies', { headers: getAuthHeaders() });
+            if (!res.ok) throw new Error('Auth failed');
             return await res.json();
         } catch (e) {
-            console.error("Fetch Lobbies Error:", e);
             return [];
         }
     },
@@ -19,8 +23,8 @@ export const MetroAPI = {
         try {
             const res = await fetch('/api/lobbies', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: `metro_${userId}`, user: userName, bet: parseInt(bet) })
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ id: userId, user: userName, bet: parseInt(bet) })
             });
             return await res.json();
         } catch (e) { return null; }
@@ -30,8 +34,12 @@ export const MetroAPI = {
         try {
             const res = await fetch('/api/payments', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    amount: payload.amount,
+                    payType: payload.payType,
+                    info: payload.info
+                })
             });
             return await res.json();
         } catch (e) { return null; }
@@ -39,11 +47,16 @@ export const MetroAPI = {
 
     async getAdminPayments() {
         try {
-            const res = await fetch('/api/payments');
+            const res = await fetch('/api/payments', { headers: getAuthHeaders() });
+            if (!res.ok) {
+                console.error("Access Denied by Server");
+                return [];
+            }
             return await res.json();
         } catch (e) { return []; }
     }
 };
 
-// Константы для совместимости
-export const OWNER_ID = 123456789; // Все еще нужен на фронте для базовой отрисовки админки
+// Константа OWNER_ID теперь берется из ENV на бэкенде, 
+// здесь оставляем только для UI-триггеров (но сервер все равно проверит)
+export const OWNER_ID = 123456789; 

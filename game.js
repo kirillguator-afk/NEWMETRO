@@ -8,9 +8,15 @@ export const Blackjack = {
         return this.shuffle(deck);
     },
 
+    /**
+     * Криптографически стойкое перемешивание Фишера-Йейтса
+     */
     shuffle(deck) {
+        const randomValues = new Uint32Array(deck.length);
+        window.crypto.getRandomValues(randomValues);
+        
         for (let i = deck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = randomValues[i] % (i + 1);
             [deck[i], deck[j]] = [deck[j], deck[i]];
         }
         return deck;

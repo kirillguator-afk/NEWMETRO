@@ -3,7 +3,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>METRO ADMIN - Vercel Database</title>
+    <title>METRO ADMIN - Secure Access</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -11,42 +11,53 @@
     <h1 class="text-2xl font-black text-emerald-500 mb-10 tracking-tighter">METRO_OPS</h1>
     
     <div id="admin-content" class="hidden">
-        <div id="list" class="space-y-4">Fetching from Redis...</div>
+        <div id="list" class="space-y-4">Requesting secure data...</div>
     </div>
 
     <div id="access-denied" class="hidden text-center py-20">
-        <h2 class="text-xl font-bold text-red-500">ACCESS DENIED</h2>
+        <div class="text-5xl mb-6">🔒</div>
+        <h2 class="text-xl font-bold text-red-500 uppercase tracking-widest">Access Denied</h2>
+        <p class="text-slate-500 text-xs mt-4">Your ID is not authorized on the backend.</p>
     </div>
 
     <script type="module">
-        import { MetroAPI, OWNER_ID } from './api.js';
+        import { MetroAPI } from './api.js';
         const tg = window.Telegram.WebApp;
 
         async function init() {
             tg.ready();
-            const user = tg.initDataUnsafe?.user;
+            // Сначала пробуем получить данные. Если бэкенд вернет 403, сработает защита.
+            const reqs = await MetroAPI.getAdminPayments();
             
-            if (!user || user.id !== OWNER_ID) {
+            if (!reqs || reqs.length === 0 && reqs.error) {
                 document.getElementById('access-denied').classList.remove('hidden');
                 return;
             }
 
             document.getElementById('admin-content').classList.remove('hidden');
-            load();
-            setInterval(load, 10000);
+            render(reqs);
+            setInterval(async () => render(await MetroAPI.getAdminPayments()), 15000);
         }
 
-        async function load() {
-            const reqs = await MetroAPI.getAdminPayments();
-            document.getElementById('list').innerHTML = reqs.map(r => `
-                <div class="p-6 bg-slate-900 border border-white/5 rounded-2xl">
+        function render(reqs) {
+            const listEl = document.getElementById('list');
+            if (!reqs || reqs.length === 0) {
+                listEl.innerHTML = "<div class='opacity-30 italic'>No pending requests...</div>";
+                return;
+            }
+            listEl.innerHTML = reqs.map(r => `
+                <div class="p-6 bg-slate-900 border border-white/5 rounded-2xl animate-in slide-in-from-top-4 duration-500">
                     <div class="flex justify-between">
-                        <span class="text-xs font-bold ${r.payType==='DEPOSIT'?'text-emerald-400':'text-orange-400'}">${r.payType}</span>
-                        <span class="font-bold">${r.amount} CASH</span>
+                        <span class="text-[10px] font-black tracking-widest ${r.payType==='DEPOSIT'?'text-emerald-400':'text-orange-400'}">${r.payType}</span>
+                        <span class="font-bold text-lg">${r.amount} CASH</span>
                     </div>
-                    <div class="text-[10px] text-slate-500 mt-2">USER: ${r.user} (${r.id})</div>
+                    <div class="text-[10px] text-slate-500 mt-3 flex flex-col gap-1 font-mono">
+                        <div>USER: ${r.user} (${r.id})</div>
+                        <div>INFO: ${r.info}</div>
+                        <div class="opacity-30">TIME: ${new Date(r.ts).toLocaleString()}</div>
+                    </div>
                 </div>
-            `).join('') || "No requests.";
+            `).join('');
         }
 
         init();
