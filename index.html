@@ -12,7 +12,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
         body { font-family: 'Rajdhani', sans-serif; background: #020617; color: #e2e8f0; overflow: hidden; }
         .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
-        .card-ui { width: 60px; height: 85px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; }
+        .card-ui { width: 60px; height: 85px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .card-red { color: #ef4444; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .server-entry { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -20,9 +20,17 @@
         .pulse-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
         .system-badge { background: linear-gradient(90deg, #059669, #10b981); color: white; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase; }
+        .loader { width: 48px; height: 48px; border: 3px solid #FFF; border-bottom-color: #10b981; border-radius: 50%; display: inline-block; box-sizing: border-box; animation: rotation 1s linear infinite; }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="h-screen w-full flex flex-col">
+
+    <!-- VIEW: CONNECTING OVERLAY -->
+    <div id="net-overlay" class="modal hidden flex-col">
+        <span class="loader"></span>
+        <p class="mt-4 text-emerald-400 font-bold tracking-widest text-sm">ESTABLISHING P2P SIGNAL...</p>
+    </div>
 
     <!-- MODAL: PAYMENT -->
     <div id="modal-pay" class="modal hidden">
@@ -121,7 +129,6 @@
 
         const tg = window.Telegram.WebApp;
 
-        // Конфигурация базовых серверов (AI Tables)
         const DEFAULT_SERVERS = [
             { id: 'system_low', user: 'STREET GUTTER', bet: 100, isSystem: true },
             { id: 'system_mid', user: 'MID-CITY STATION', bet: 500, isSystem: true },
@@ -131,7 +138,7 @@
         window.App = {
             state: {
                 user: { id: 0, name: 'Guest', balance: 1000 },
-                role: null, // 'host', 'client', 'ai'
+                role: null, 
                 game: { deck: [], dealerHand: [], playerHand: [], status: 'WAITING', bet: 100 },
                 net: null, heartbeat: null, activeTab: 'games'
             },
@@ -145,7 +152,9 @@
                     document.getElementById('ui-name').innerText = u.first_name;
                     document.getElementById('ui-avatar').innerText = u.first_name[0];
                 }
-                this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerJoin());
+                
+                // Инициализация сети
+                this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
                 
                 setInterval(() => {
                     if(this.state.activeTab === 'servers') this.refreshLobbies();
@@ -156,10 +165,8 @@
                 this.state.activeTab = t;
                 document.getElementById('pane-games').classList.toggle('hidden', t !== 'games');
                 document.getElementById('pane-servers').classList.toggle('hidden', t !== 'servers');
-                
                 const bGames = document.getElementById('tab-btn-games');
                 const bServers = document.getElementById('tab-btn-servers');
-                
                 if(t === 'games') {
                     bGames.className = "flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs tracking-widest transition-all";
                     bServers.className = "flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs tracking-widest transition-all";
@@ -173,8 +180,8 @@
             async refreshLobbies() {
                 const list = document.getElementById('server-list');
                 const updates = await MetroAPI.getUpdates();
-                
                 const dynamicLobbies = new Map();
+                
                 updates.forEach(u => {
                     const msg = u.channel_post || u.message;
                     if(!msg) return;
@@ -185,9 +192,7 @@
                     }
                 });
 
-                // Объединяем системные и динамические
                 const allLobbies = [...DEFAULT_SERVERS, ...Array.from(dynamicLobbies.values())];
-                
                 list.innerHTML = allLobbies.map(i => `
                     <div onclick="App.joinTable('${i.id}', ${i.bet}, ${!!i.isSystem})" class="server-entry glass p-5 rounded-2xl flex justify-between items-center border border-transparent active:scale-95 cursor-pointer">
                         <div class="flex items-center gap-4">
@@ -216,16 +221,17 @@
             joinTable(id, bet, isSystem = false) {
                 tg.HapticFeedback.impactOccurred('medium');
                 this.state.game.bet = bet;
-                this.showView('game');
                 
                 if(isSystem) {
                     this.state.role = 'ai';
+                    this.showView('game');
                     document.getElementById('game-id-label').innerText = `SYSTEM_STATION: ${id.toUpperCase()}`;
-                    this.startRound(); // Для AI начинаем сразу
+                    this.startRound();
                 } else {
                     this.state.role = 'client';
+                    document.getElementById('net-overlay').classList.remove('hidden');
                     this.state.net.connectTo(id);
-                    document.getElementById('game-id-label').innerText = `CONNECTING: ${id}`;
+                    // Вид игры переключится в onNetMsg или по таймауту/ошибке в network.js
                 }
             },
 
@@ -236,13 +242,24 @@
                 this.state.game.bet = parseInt(bet);
                 this.showView('game');
                 document.getElementById('game-id-label').innerText = `ID: metro_${this.state.user.id}`;
-                const publish = () => MetroAPI.sendMessage(CHANNEL_ID, `#METRO_LOBBY|ID:metro_${this.state.user.id}|USER:${this.state.user.name}|BET:${this.state.game.bet}`);
+                
+                const publish = () => {
+                    if(this.state.role !== 'host') return;
+                    const text = `#METRO_LOBBY|ID:metro_${this.state.user.id}|USER:${this.state.user.name}|BET:${this.state.game.bet}`;
+                    MetroAPI.sendMessage(CHANNEL_ID, text);
+                };
+                
                 publish();
                 if(this.state.heartbeat) clearInterval(this.state.heartbeat);
                 this.state.heartbeat = setInterval(publish, 45000);
             },
 
-            onPeerJoin() {
+            onPeerReady() {
+                // Вызывается когда P2P соединение установлено (для обоих сторон)
+                document.getElementById('net-overlay').classList.add('hidden');
+                if(this.state.role === 'client') {
+                    this.showView('game');
+                }
                 if(this.state.role === 'host') {
                     tg.HapticFeedback.notificationOccurred('success');
                     this.startRound();
@@ -263,8 +280,17 @@
             },
 
             onNetMsg(msg) {
-                if(msg.type === 'SYNC') { this.state.game = msg.game; this.render(); }
-                if(msg.type === 'ACTION' && this.state.role === 'host') this.handleAction(msg.act);
+                if(msg.type === 'SYNC') { 
+                    this.state.game = msg.game; 
+                    this.render(); 
+                }
+                if(msg.type === 'ACTION' && this.state.role === 'host') {
+                    this.handleAction(msg.act);
+                }
+                if(msg.type === 'ERROR') {
+                    alert(msg.msg);
+                    window.location.reload();
+                }
             },
 
             handleAction(act) {
@@ -273,10 +299,11 @@
                     if(Blackjack.getScore(this.state.game.playerHand) > 21) this.state.game.status = 'END';
                 } else {
                     this.state.game.status = 'DEALER_TURN';
-                    while(Blackjack.getScore(this.state.game.dealerHand) < 17) this.state.game.dealerHand.push(this.state.game.deck.pop());
+                    while(Blackjack.getScore(this.state.game.dealerHand) < 17) {
+                        this.state.game.dealerHand.push(this.state.game.deck.pop());
+                    }
                     this.state.game.status = 'END';
                 }
-                
                 if(this.state.role !== 'ai') this.sync();
                 else this.render();
             },
@@ -298,17 +325,14 @@
             render() {
                 const g = this.state.game;
                 const hideDealer = g.status === 'PLAYER_TURN' && (this.state.role === 'client' || this.state.role === 'ai');
-                
                 document.getElementById('player-cards').innerHTML = g.playerHand.map(c => this.cardTpl(c)).join('');
                 document.getElementById('dealer-cards').innerHTML = g.dealerHand.map((c, i) => 
                     (i === 0 && hideDealer) ? `<div class="card-ui bg-slate-800 border-2 border-white/10"></div>` : this.cardTpl(c)
                 ).join('');
-                
                 document.getElementById('player-score').innerText = Blackjack.getScore(g.playerHand);
                 document.getElementById('dealer-score').innerText = hideDealer ? '?' : Blackjack.getScore(g.dealerHand);
                 document.getElementById('game-actions').classList.toggle('hidden', g.status !== 'PLAYER_TURN');
                 document.getElementById('game-status-label').innerText = g.status.replace('_', ' ');
-
                 if(g.status === 'END') setTimeout(() => this.showResult(), 800);
             },
 
