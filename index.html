@@ -85,7 +85,6 @@
     </div>
 
     <script type="module">
-        // Nexus Prime: Using absolute paths to avoid rewrite issues
         import { MetroAPI } from '/api.js';
         import { MetroNetwork } from '/network.js';
 
@@ -102,37 +101,39 @@
             },
 
             async init() {
+                // [CRITICAL] Всегда вызываем tg.ready() сразу для предотвращения черного экрана
+                tg.ready();
+                tg.expand();
+
                 try {
-                    console.log("App initializing...");
-                    tg.ready();
-                    tg.expand();
-                    
                     const u = tg.initDataUnsafe?.user;
                     if(u) {
                         this.state.user.id = u.id;
                         this.state.user.name = u.first_name;
                         document.getElementById('ui-name').textContent = u.first_name;
-                        
-                        // Defensive API call
                         const prof = await MetroAPI.getUserProfile();
                         if(prof && prof.avatarUrl) this.updateAvatarUI(prof.avatarUrl);
-                    } else {
-                        console.warn("No Telegram user data found. Are you in TWA?");
                     }
                     
-                    this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
+                    // Инициализация сети с обработчиком ошибок
+                    this.state.net = new MetroNetwork(
+                        this.state.user.id, 
+                        (d) => this.onNetMsg(d), 
+                        () => this.onPeerReady(),
+                        (err) => {
+                            console.error("Net error", err);
+                            // Если PeerJS не может стартануть, показываем предупреждение, но не вешаем UI
+                            tg.showAlert("P2P Signaling Unavailable. Multiplayer functions limited.");
+                        }
+                    );
                     
-                    this.setupListeners();
-                    console.log("App ready.");
-                } catch (error) {
-                    console.error("Critical init error:", error);
-                    // Force ready even on error to avoid black screen
-                    tg.ready();
-                    tg.showAlert("Failed to sync with Metro Node. Please restart.");
+                    this.setupHandlers();
+                } catch (e) {
+                    console.error("Init failed", e);
                 }
             },
 
-            setupListeners() {
+            setupHandlers() {
                 document.getElementById('avatar-trigger').onclick = () => document.getElementById('avatar-input').click();
                 document.getElementById('avatar-input').onchange = (e) => this.handleAvatarUpload(e);
                 document.getElementById('tab-btn-games').onclick = () => this.setTab('games');
@@ -170,13 +171,10 @@
                 document.getElementById('pane-servers').classList.toggle('hidden', t !== 'servers');
                 const btnG = document.getElementById('tab-btn-games');
                 const btnS = document.getElementById('tab-btn-servers');
-                
-                const activeCls = 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-[10px] uppercase';
-                const inactiveCls = 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-[10px] uppercase';
-                
-                btnG.className = t === 'games' ? activeCls : inactiveCls;
-                btnS.className = t === 'servers' ? activeCls : inactiveCls;
-                
+                const active = 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-[10px] uppercase tracking-wider';
+                const inactive = 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-[10px] uppercase tracking-wider';
+                btnG.className = t === 'games' ? active : inactive;
+                btnS.className = t === 'servers' ? active : inactive;
                 if(t === 'servers') this.refreshLobbies();
             },
 
@@ -184,40 +182,19 @@
                 const listEl = document.getElementById('server-list');
                 const labs = await MetroAPI.getLobbies();
                 listEl.innerHTML = '';
-                
                 labs.forEach(i => {
                     const row = document.createElement('div');
                     row.className = 'glass p-5 rounded-2xl flex justify-between items-center cursor-pointer active:scale-95 transition-all';
                     row.onclick = () => this.joinTable(i.id);
-                    
-                    const left = document.createElement('div');
-                    left.className = 'flex items-center gap-4';
-                    
-                    const avatar = document.createElement('div');
-                    avatar.className = 'w-10 h-10 rounded-full bg-slate-800 overflow-hidden border border-white/10 flex items-center justify-center';
-                    if(i.avatar) {
-                        const img = document.createElement('img');
-                        img.src = i.avatar;
-                        img.className = 'w-full h-full object-cover';
-                        avatar.appendChild(img);
-                    } else {
-                        avatar.textContent = i.user[0];
-                    }
-
-                    const info = document.createElement('div');
-                    const name = document.createElement('div');
-                    name.className = 'font-bold text-white tracking-tight';
-                    name.textContent = i.user;
-                    info.appendChild(name);
-                    
-                    const bet = document.createElement('div');
-                    bet.className = 'text-emerald-400 font-black text-lg';
-                    bet.textContent = i.bet;
-
-                    left.appendChild(avatar);
-                    left.appendChild(info);
-                    row.appendChild(left);
-                    row.appendChild(bet);
+                    row.innerHTML = `
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden border border-white/10 flex items-center justify-center">
+                                ${i.avatar ? `<img src="${i.avatar}" class="w-full h-full object-cover">` : i.user[0]}
+                            </div>
+                            <div class="font-bold text-white tracking-tight">${i.user}</div>
+                        </div>
+                        <div class="text-emerald-400 font-black text-lg">${i.bet}</div>
+                    `;
                     listEl.appendChild(row);
                 });
             },
@@ -262,10 +239,8 @@
             async gameAction(act) {
                 if(this.state.isProcessing) return;
                 this.setControlsActive(false);
-
                 const currentTurn = this.state.game?.turnCount || 1;
                 const newState = await MetroAPI.performAction(this.state.lobbyId, act, currentTurn);
-                
                 if(newState.error) {
                     tg.showAlert(newState.error);
                     if(newState.error.includes('Sync')) this.syncState();
@@ -280,43 +255,27 @@
 
             setControlsActive(active) {
                 this.state.isProcessing = !active;
-                const hit = document.getElementById('btn-hit');
-                const std = document.getElementById('btn-stand');
-                if(active) {
-                    hit.classList.remove('btn-disabled');
-                    std.classList.remove('btn-disabled');
-                } else {
-                    hit.classList.add('btn-disabled');
-                    std.classList.add('btn-disabled');
-                }
+                document.getElementById('btn-hit').classList.toggle('btn-disabled', !active);
+                document.getElementById('btn-stand').classList.toggle('btn-disabled', !active);
             },
 
             onNetMsg(msg) {
-                if(msg.type === 'UPDATE_SIGNAL') {
-                    this.syncState();
-                }
+                if(msg.type === 'UPDATE_SIGNAL') this.syncState();
             },
 
             render() {
                 const g = this.state.game;
                 if(!g) return;
-
                 const isEnd = g.status === 'END';
                 const showFullDealer = isEnd || g.status === 'DEALER_TURN';
-
                 document.getElementById('player-cards').innerHTML = g.playerHand.map(c => this.cardTpl(c)).join('');
                 document.getElementById('dealer-cards').innerHTML = g.dealerHand.map((c, i) => 
                     (i === 0 && !showFullDealer) ? `<div class="card-ui bg-slate-900 border border-white/5"><div class="w-full h-full opacity-10 bg-gradient-to-br from-white to-transparent rounded-lg"></div></div>` : this.cardTpl(c)
                 ).join('');
-
                 document.getElementById('player-score').textContent = `YOU: ${g.playerScore}`;
                 document.getElementById('dealer-score').textContent = `DEALER: ${g.dealerScore}`;
-                
                 document.getElementById('game-actions').classList.toggle('hidden', g.status !== 'PLAYER_TURN');
-                
-                if(isEnd) {
-                    setTimeout(() => this.showResult(), 800);
-                }
+                if(isEnd) setTimeout(() => this.showResult(), 800);
             },
 
             cardTpl(c) {
@@ -331,7 +290,6 @@
                 const g = this.state.game;
                 const p = g.playerScore;
                 const d = typeof g.dealerScore === 'number' ? g.dealerScore : 0;
-                
                 let res = (p > 21) ? "BUSTED" : (d > 21 || p > d) ? "WINNER" : (p === d) ? "PUSH" : "LOSE";
                 const msg = document.getElementById('result-msg');
                 msg.textContent = res;

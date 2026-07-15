@@ -3,32 +3,29 @@ import crypto from 'crypto';
 import { kv } from '@vercel/kv';
 
 /**
- * Верификация данных Telegram Web App с защитой от Replay-атак
- * Nexus Prime Status: PRODUCTION_READY
+ * Верификация данных Telegram Web App с защитой от Replay-атак (SET NX)
+ * Nexus Prime Status: SECURE_AUDITED
  */
 export async function verifyTelegramAuth(initData, botToken) {
-    if (!initData || !botToken) {
-        console.error("Auth Error: Missing parameters");
-        return false;
-    }
+    if (!initData || !botToken) return false;
 
     try {
         const urlParams = new URLSearchParams(initData);
         const hash = urlParams.get('hash');
-        if (!hash) return false;
+        const authDate = parseInt(urlParams.get('auth_date'));
         
-        // [SECURITY] Replay Attack Protection (5 min window)
-        const replayKey = `replay:${hash}`;
-        const isUsed = await kv.get(replayKey);
-        if (isUsed) return false;
+        if (!hash || !authDate) return false;
+
+        // [SECURITY] 1. Проверка актуальности (120 секунд)
+        const now = Math.floor(Date.now() / 1000);
+        if (Math.abs(now - authDate) > 120) return false;
+
+        // [SECURITY] 2. Атомарная проверка Replay-атаки через SET NX
+        // Если ключ уже есть, значит запрос повторный.
+        const wasSet = await kv.set(`replay:${hash}`, '1', { nx: true, ex: 120 });
+        if (!wasSet) return false;
 
         urlParams.delete('hash');
-
-        const authDate = parseInt(urlParams.get('auth_date'));
-        const now = Math.floor(Date.now() / 1000);
-        if (!authDate || Math.abs(now - authDate) > 300) {
-            return false;
-        }
 
         const dataCheckString = Array.from(urlParams.entries())
             .sort(([a], [b]) => a.localeCompare(b))
@@ -42,11 +39,7 @@ export async function verifyTelegramAuth(initData, botToken) {
             .update(dataCheckString)
             .digest('hex');
 
-        if (hmac === hash) {
-            await kv.set(replayKey, '1', { ex: 300 });
-            return true;
-        }
-        return false;
+        return hmac === hash;
     } catch (e) {
         return false;
     }

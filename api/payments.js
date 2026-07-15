@@ -3,6 +3,9 @@ import { kv } from '@vercel/kv';
 import crypto from 'crypto';
 import { verifyTelegramAuth, getUserData } from './utils/auth.js';
 
+/**
+ * Nexus Prime: Платежная система с проверкой баланса
+ */
 export default async function handler(req, res) {
     const initData = req.headers['x-telegram-init-data'];
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -13,25 +16,31 @@ export default async function handler(req, res) {
     }
 
     const tgUser = getUserData(initData);
+    const balanceKey = `user:${tgUser.id}:balance`;
 
     if (req.method === 'POST') {
         const { amount, payType, info } = req.body;
-        if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0) return res.status(400).json({ error: 'Invalid amount' });
+
+        // [SECURITY] Проверка баланса при выводе
+        if (payType === 'WITHDRAW') {
+            const currentBalance = await kv.get(balanceKey) || 0;
+            if (currentBalance < amt) {
+                return res.status(400).json({ error: 'Insufficient funds' });
+            }
+        }
 
         const rateKey = `limit:pay:${tgUser.id}`;
         const isLimited = await kv.get(rateKey);
-        if (isLimited) return res.status(429).json({ error: 'Please wait before next request' });
+        if (isLimited) return res.status(429).json({ error: 'Rate limit' });
 
         const txId = crypto.randomUUID();
         const payload = {
-            txId,
-            id: tgUser.id,
-            user: tgUser.first_name,
-            amount: parseInt(amount),
-            payType: payType === 'WITHDRAW' ? 'WITHDRAW' : 'DEPOSIT',
-            info: info ? info.substring(0, 128) : 'N/A',
-            status: 'PENDING',
-            ts: Date.now()
+            txId, id: tgUser.id, user: tgUser.first_name,
+            amount: amt, payType: payType === 'WITHDRAW' ? 'WITHDRAW' : 'DEPOSIT',
+            info: info?.substring(0, 128) || 'N/A',
+            status: 'PENDING', ts: Date.now()
         };
 
         const pipeline = kv.pipeline();
@@ -41,7 +50,7 @@ export default async function handler(req, res) {
         await pipeline.exec();
 
         try {
-            const text = `<b>💰 NEW TRANSACTION</b>\nType: ${payload.payType}\nUser: ${payload.user}\nAmt: ${payload.amount}\nTX: <code>${txId}</code>`;
+            const text = `<b>💰 TRANSACTION</b>\nType: ${payload.payType}\nUser: ${payload.user}\nAmt: ${payload.amount}\nTX: <code>${txId}</code>`;
             await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -54,27 +63,10 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
         if (tgUser.id !== ownerId) return res.status(403).json({ error: 'Forbidden' });
-
         const txIds = await kv.lrange('all_tx_index', 0, 49);
         if (txIds.length === 0) return res.status(200).json([]);
-
-        const keys = txIds.map(id => `tx:${id}`);
-        const rawPayments = await kv.mget(...keys);
-        
-        // [PRIVACY] Очищаем метаданные перед отправкой админу
-        const cleanPayments = rawPayments
-            .filter(Boolean)
-            .map(p => ({
-                txId: p.txId,
-                id: p.id,
-                user: p.user,
-                amount: p.amount,
-                payType: p.payType,
-                info: p.info,
-                ts: p.ts
-            }));
-            
-        return res.status(200).json(cleanPayments);
+        const rawPayments = await kv.mget(...txIds.map(id => `tx:${id}`));
+        return res.status(200).json(rawPayments.filter(Boolean));
     }
 
     return res.status(405).end();
