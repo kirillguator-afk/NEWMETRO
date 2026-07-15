@@ -1,6 +1,7 @@
 
 /**
- * Metro API Client with Error Propagation
+ * Metro API Client
+ * nexus-prime: Enhanced 401 handling
  */
 const getAuthHeaders = () => ({
     'x-telegram-init-data': window.Telegram?.WebApp?.initData || '',
@@ -10,14 +11,18 @@ const getAuthHeaders = () => ({
 export const MetroAPI = {
     async getProfile() {
         const res = await fetch('./api/profile/data', { headers: getAuthHeaders() });
-        if (res.status === 401) throw new Error("UNAUTHORIZED");
-        if (!res.ok) throw new Error("SERVER_ERROR_" + res.status);
+        if (res.status === 401) {
+            // Специальный сигнал фронтенду о необходимости перезагрузки
+            throw new Error("SESSION_EXPIRED");
+        }
+        if (!res.ok) throw new Error("API_ERROR_" + res.status);
         return await res.json();
     },
 
     async getLobbies() {
         try {
             const res = await fetch('./api/lobbies', { headers: getAuthHeaders() });
+            if (res.status === 401) return []; // Тихий возврат для списка
             return res.ok ? await res.json() : [];
         } catch (e) { return []; }
     },
@@ -37,7 +42,7 @@ export const MetroAPI = {
             body: JSON.stringify({ action: 'START', lobbyId, bet })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "FAILED_TO_START");
+        if (!res.ok) throw new Error(data.error || "START_FAILED");
         return data;
     },
 
@@ -48,7 +53,7 @@ export const MetroAPI = {
             body: JSON.stringify({ action: 'JOIN', lobbyId })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "FAILED_TO_JOIN");
+        if (!res.ok) throw new Error(data.error || "JOIN_FAILED");
         return data;
     },
 
@@ -59,7 +64,7 @@ export const MetroAPI = {
             body: JSON.stringify({ action, lobbyId, expectedTurn: turn })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "ACTION_ERROR");
+        if (!res.ok) throw new Error(data.error || "ACTION_FAILED");
         return data;
     },
 

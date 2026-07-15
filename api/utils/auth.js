@@ -3,15 +3,11 @@ import crypto from 'crypto';
 import { kv } from '@vercel/kv';
 
 /**
- * Nexus Prime: Оптимизированная верификация Telegram
+ * Nexus Prime: Полноценная верификация Telegram Mini App
  */
 export async function verifyTelegramAuth(initData, botToken) {
-    if (!initData) {
-        console.error("[AUTH] No initData provided");
-        return false;
-    }
-    if (!botToken) {
-        console.error("[AUTH] TELEGRAM_BOT_TOKEN is missing in Environment Variables");
+    if (!initData || !botToken) {
+        console.error("[AUTH] Missing initData or token");
         return false;
     }
 
@@ -22,45 +18,50 @@ export async function verifyTelegramAuth(initData, botToken) {
         
         if (!hash || !authDate) return false;
 
-        // 1. Окно валидации 15 минут
+        // 1. Окно валидации расширено до 24 часов для бета-теста
+        // Это предотвращает 401 ошибку, если пользователь не закрывал приложение долгое время
         const now = Math.floor(Date.now() / 1000);
-        if (Math.abs(now - authDate) > 900) {
-            console.error("[AUTH] Token expired:", now - authDate, "seconds ago");
+        const timeDiff = Math.abs(now - authDate);
+        if (timeDiff > 86400) {
+            console.error(`[AUTH] Token expired. Diff: ${timeDiff}s (Limit: 86400s)`);
             return false;
         }
 
-        // 2. Replay Protection через KV (если KV доступен)
+        // 2. Replay Protection (Атомарно на 15 минут, чтобы не забивать KV)
         try {
             const replayKey = `replay:${hash}`;
-            const isUsed = await kv.get(replayKey);
-            if (isUsed) {
-                console.error("[AUTH] Replay attack detected or token re-used");
+            const isUsed = await kv.set(replayKey, '1', { nx: true, ex: 900 });
+            if (!isUsed) {
+                console.error("[AUTH] Replay attempt detected");
                 return false;
             }
-            await kv.set(replayKey, '1', { ex: 900 });
-        } catch (e) {
-            console.warn("[AUTH] KV Replay check failed, skipping...", e.message);
+        } catch (kvErr) {
+            // Если KV недоступен, продолжаем валидацию HMAC
+            console.warn("[AUTH] KV protection offline, bypassing to HMAC...");
         }
 
-        // 3. Формирование проверочной строки
-        const dataCheckString = Array.from(urlParams.entries())
-            .filter(([key]) => key !== 'hash')
-            .sort((a, b) => a[0].localeCompare(b[0]))
-            .map(([key, value]) => `${key}=${value}`)
-            .join('\n');
+        // 3. Формирование строки данных (обязательная сортировка ключей)
+        const entries = [];
+        urlParams.forEach((val, key) => {
+            if (key !== 'hash') entries.push(`${key}=${val}`);
+        });
+        
+        const dataCheckString = entries.sort().join('\n');
 
-        // 4. Расчет HMAC-SHA256
+        // 4. Проверка HMAC-SHA256
         const secretKey = crypto.createHmac('sha256', 'WebAppData')
             .update(botToken).digest();
         const hmac = crypto.createHmac('sha256', secretKey)
             .update(dataCheckString).digest('hex');
 
-        const isValid = hmac === hash;
-        if (!isValid) console.error("[AUTH] Hash mismatch");
-        
-        return isValid;
+        if (hmac !== hash) {
+            console.error("[AUTH] Hash Mismatch!");
+            return false;
+        }
+
+        return true;
     } catch (e) {
-        console.error("[AUTH] Internal verification error:", e);
+        console.error("[AUTH] Critical exception:", e.message);
         return false;
     }
 }
