@@ -3,6 +3,10 @@ import { kv } from '@vercel/kv';
 import { verifyTelegramAuth, getUserData } from '../utils/auth.js';
 import { BlackjackEngine } from './logic.js';
 
+/**
+ * Nexus Prime: Game Engine Controller
+ * Handles actions with Optimistic Concurrency Control
+ */
 export default async function handler(req, res) {
     const initData = req.headers['x-telegram-init-data'];
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -17,16 +21,15 @@ export default async function handler(req, res) {
     const gameKey = `game_session:${lobbyId}`;
 
     if (action === 'START') {
-        // [SECURITY] Проверка владения лобби перед запуском игры
+        // [SECURITY] Verify lobby ownership
         const lobby = await kv.get(`lobby:${lobbyId}`);
         if (!lobby || lobby.hostId !== tgUser.id) {
-            return res.status(403).json({ error: 'Unauthorized: You are not the host of this table' });
+            return res.status(403).json({ error: 'Unauthorized access' });
         }
 
-        // Проверка: нет ли уже активной игры
         const existingGame = await kv.get(gameKey);
         if (existingGame && existingGame.status !== 'END') {
-            return res.status(409).json({ error: 'Game already in progress' });
+            return res.status(409).json({ error: 'Session active' });
         }
 
         const deck = BlackjackEngine.createDeck();
@@ -52,14 +55,15 @@ export default async function handler(req, res) {
     }
 
     const state = await kv.get(gameKey);
-    if (!state) return res.status(404).json({ error: 'Session not found' });
+    if (!state) return res.status(404).json({ error: 'Game not found' });
 
     if (state.hostId !== tgUser.id) {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // [STABILITY] Turn-based versioning check
     if (expectedTurn !== undefined && state.turnCount !== expectedTurn) {
-        return res.status(409).json({ error: 'Action conflict', ...formatResponse(state) });
+        return res.status(409).json({ error: 'Sync error', ...formatResponse(state) });
     }
 
     let changed = false;
@@ -67,7 +71,7 @@ export default async function handler(req, res) {
     if (action === 'HIT') {
         if (state.status === 'PLAYER_TURN') {
             if (BlackjackEngine.getScore(state.playerHand) >= 21) {
-                return res.status(400).json({ error: 'Cannot hit with current score' });
+                return res.status(400).json({ error: 'Action denied' });
             }
 
             state.playerHand.push(state.deck.pop());

@@ -3,12 +3,12 @@ import crypto from 'crypto';
 import { kv } from '@vercel/kv';
 
 /**
- * Верификация данных Telegram Web App с защитой от Replay-атак через KV
- * Nexus Prime: Добавлена проверка наличия Bot Token и улучшена отказоустойчивость.
+ * Верификация данных Telegram Web App с защитой от Replay-атак
+ * Nexus Prime Status: PRODUCTION_READY
  */
 export async function verifyTelegramAuth(initData, botToken) {
     if (!initData || !botToken) {
-        console.error("Auth Error: Missing initData or Bot Token in Environment");
+        console.error("Auth Error: Missing parameters");
         return false;
     }
 
@@ -17,7 +17,7 @@ export async function verifyTelegramAuth(initData, botToken) {
         const hash = urlParams.get('hash');
         if (!hash) return false;
         
-        // [SECURITY] Replay Attack Protection
+        // [SECURITY] Replay Attack Protection (5 min window)
         const replayKey = `replay:${hash}`;
         const isUsed = await kv.get(replayKey);
         if (isUsed) return false;
@@ -43,13 +43,11 @@ export async function verifyTelegramAuth(initData, botToken) {
             .digest('hex');
 
         if (hmac === hash) {
-            // Кэшируем хеш на 5 минут
             await kv.set(replayKey, '1', { ex: 300 });
             return true;
         }
         return false;
     } catch (e) {
-        console.error("Auth internal failure:", e);
         return false;
     }
 }
