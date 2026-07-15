@@ -2,6 +2,10 @@
 import { kv } from '@vercel/kv';
 import { verifyTelegramAuth, getUserData } from './utils/auth.js';
 
+/**
+ * Nexus Prime: Оптимизированный менеджер лобби
+ * Node 24 Runtime ready
+ */
 export default async function handler(req, res) {
     const initData = req.headers['x-telegram-init-data'];
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -13,15 +17,18 @@ export default async function handler(req, res) {
     const tgUser = getUserData(initData);
 
     if (req.method === 'POST') {
-        const { id, bet, avatar } = req.body;
+        const { id, bet } = req.body;
         if (!id) return res.status(400).json({ error: 'Lobby ID required' });
         
         const userActiveKey = `active_user_lobby:${tgUser.id}`;
         const existingLobbyId = await kv.get(userActiveKey);
         
+        // Очистка старых лобби пользователя
         if (existingLobbyId && existingLobbyId !== id) {
-            await kv.del(`lobby:${existingLobbyId}`);
-            await kv.srem('active_lobbies_set', `lobby:${existingLobbyId}`);
+            await Promise.all([
+                kv.del(`lobby:${existingLobbyId}`),
+                kv.srem('active_lobbies_set', `lobby:${existingLobbyId}`)
+            ]);
         }
 
         const lobbyKey = `lobby:${id}`;
@@ -32,7 +39,7 @@ export default async function handler(req, res) {
             hostId: tgUser.id,
             user: safeName,
             bet: Math.max(10, Math.min(10000, parseInt(bet) || 100)),
-            avatar: avatar || null,
+            avatar: null, // Аватар теперь тянется из профиля по ID для экономии места в KV
             ts: Date.now()
         };
 
@@ -46,11 +53,10 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
-        // [OPTIMIZATION] Ограничиваем выборку для стабильности при росте аудитории
         const keys = await kv.smembers('active_lobbies_set');
         if (!keys || keys.length === 0) return res.status(200).json([]);
         
-        // Берем последние 50 созданных лобби
+        // Ограничение выборки последними 50 записями
         const limitedKeys = keys.slice(-50);
         const lobbies = await kv.mget(...limitedKeys);
         
@@ -58,14 +64,11 @@ export default async function handler(req, res) {
         const deadKeys = [];
 
         lobbies.forEach((lobby, index) => {
-            if (lobby) {
-                validLobbies.push(lobby);
-            } else {
-                deadKeys.push(limitedKeys[index]);
-            }
+            if (lobby) validLobbies.push(lobby);
+            else deadKeys.push(limitedKeys[index]);
         });
 
-        // Неблокирующая фоновая очистка "мертвых" ссылок
+        // Фоновая очистка индекса
         if (deadKeys.length > 0) {
             kv.srem('active_lobbies_set', ...deadKeys).catch(() => {});
         }

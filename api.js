@@ -6,13 +6,18 @@ const getAuthHeaders = () => ({
 
 export const MetroAPI = {
     async getProfile() {
-        const res = await fetch('/api/profile/data', { headers: getAuthHeaders() });
-        return res.json();
+        try {
+            const res = await fetch('/api/profile/data', { headers: getAuthHeaders() });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) { return null; }
     },
 
     async getLobbies() {
-        const res = await fetch('/api/lobbies', { headers: getAuthHeaders() });
-        return res.json();
+        try {
+            const res = await fetch('/api/lobbies', { headers: getAuthHeaders() });
+            return res.ok ? await res.json() : [];
+        } catch (e) { return []; }
     },
 
     async publishLobby(bet, peerId) {
@@ -29,7 +34,7 @@ export const MetroAPI = {
             headers: getAuthHeaders(),
             body: JSON.stringify({ action: 'START', lobbyId, bet })
         });
-        return res.json();
+        return await res.json();
     },
 
     async joinGame(lobbyId) {
@@ -38,29 +43,24 @@ export const MetroAPI = {
             headers: getAuthHeaders(),
             body: JSON.stringify({ action: 'JOIN', lobbyId })
         });
-        return res.json();
+        return await res.json();
     },
 
     async performAction(lobbyId, action, turn) {
-        const res = await fetch('/api/game/action', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ action, lobbyId, expectedTurn: turn })
-        });
-        return res.json();
-    },
-
-    async uploadAvatar(file) {
-        const res = await fetch(`/api/avatar/upload`, {
-            method: 'POST',
-            headers: { 'x-telegram-init-data': window.Telegram?.WebApp?.initData || '', 'Content-Type': file.type },
-            body: file
-        });
-        return res.json();
+        try {
+            const res = await fetch('/api/game/action', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ action, lobbyId, expectedTurn: turn })
+            });
+            return await res.json();
+        } catch (e) { return { error: 'Network Error' }; }
     },
 
     async getLeaderboard() {
-        const res = await fetch('/api/leaderboard', { headers: getAuthHeaders() });
-        return res.json();
+        try {
+            const res = await fetch('/api/leaderboard', { headers: getAuthHeaders() });
+            return res.ok ? await res.json() : [];
+        } catch (e) { return []; }
     }
 };
