@@ -10,44 +10,36 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Inter:wght@300;400;600;800&display=swap');
-        
         :root { --accent: #10b981; --bg: #020617; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: #f8fafc; overflow: hidden; height: 100vh; width: 100vw; margin: 0; position: fixed; }
         .font-cyber { font-family: 'Syncopate', sans-serif; text-transform: uppercase; }
-        
         .glass { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
         .neon-border { border: 1px solid var(--accent); box-shadow: 0 0 15px rgba(16, 185, 129, 0.3); }
-        
         .nav-item { transition: all 0.3s; opacity: 0.4; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
         .nav-item.active { opacity: 1; color: var(--accent); transform: translateY(-2px); }
-        
         .card-ui { 
             width: 42px; height: 60px; background: #fff; border-radius: 6px; color: #000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             font-weight: 800; font-size: 12px; position: relative;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5); transform: translateY(0); transition: all 0.3s ease-out;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .card-red { color: #ef4444; }
-        
         .turn-glow { animation: glow 1.5s infinite alternate; }
         @keyframes glow { from { box-shadow: 0 0 5px var(--accent); } to { box-shadow: 0 0 20px var(--accent); } }
-
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .btn-disabled { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
-        
         .view-content { height: calc(100vh - 160px); overflow-y: auto; padding: 20px; -webkit-overflow-scrolling: touch; }
         #view-game { transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1); transform: translateY(100%); }
-        #view-game.active { transform: translateY(0); }
+        #view-game.active { transform: translateY(0); pointer-events: all; }
     </style>
 </head>
 <body class="flex flex-col">
 
     <div id="net-overlay" class="modal hidden flex-col">
         <div class="w-10 h-10 border-4 border-emerald-500 border-t-transparent animate-spin rounded-full mb-4"></div>
-        <div class="font-cyber text-[9px] tracking-widest text-emerald-400">Synchronizing neural link</div>
+        <div class="font-cyber text-[9px] tracking-widest text-emerald-400">Secure Matrix Sync</div>
     </div>
 
-    <!-- Top Header -->
     <div class="p-5 flex justify-between items-center z-10 shrink-0">
         <div class="font-cyber text-sm font-bold tracking-tighter">Metro<span class="text-emerald-500">Cash</span></div>
         <div class="glass px-4 py-1.5 rounded-full flex items-center gap-2">
@@ -56,15 +48,11 @@
         </div>
     </div>
 
-    <!-- Content Wrapper -->
     <div class="flex-1 relative overflow-hidden">
-        
-        <!-- Home View -->
         <div id="view-home" class="view-content">
             <div class="p-8 glass rounded-3xl text-center space-y-4 border-l-4 border-emerald-500">
-                <h1 class="font-cyber text-lg">Challenge The Node</h1>
-                <p class="text-xs text-slate-500">Create a secure table and invite runners</p>
-                <button id="btn-create-bj" class="w-full py-4 bg-emerald-600 text-white font-cyber text-[10px] rounded-xl shadow-lg shadow-emerald-900/20 active:scale-95 transition-all">Establish Host</button>
+                <h1 class="font-cyber text-lg">Node Authority</h1>
+                <button id="btn-create-bj" class="w-full py-4 bg-emerald-600 text-white font-cyber text-[10px] rounded-xl shadow-lg shadow-emerald-900/20 active:scale-95 transition-all">Initialize Host</button>
             </div>
             <div class="grid grid-cols-2 gap-4 mt-6">
                 <div class="glass p-5 rounded-2xl">
@@ -78,48 +66,34 @@
             </div>
         </div>
 
-        <!-- Servers View -->
         <div id="view-servers" class="view-content hidden">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="font-cyber text-[10px] tracking-widest text-slate-500">Available Nodes</h2>
-                <button onclick="App.refreshLobbies()" class="text-emerald-500">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round"/></svg>
-                </button>
-            </div>
-            <div id="server-list" class="space-y-4"></div>
+            <h2 class="font-cyber text-[10px] mb-6 tracking-widest text-slate-500">Active Uplinks</h2>
+            <div id="server-list" class="space-y-4 pb-20"></div>
         </div>
 
-        <!-- Rank View -->
         <div id="view-rank" class="view-content hidden">
-            <h2 class="font-cyber text-[10px] mb-6 tracking-widest text-emerald-500 text-center">Global Elite</h2>
+            <h2 class="font-cyber text-[10px] mb-6 tracking-widest text-emerald-500 text-center">Leaderboard</h2>
             <div id="leaderboard-list" class="space-y-2"></div>
         </div>
 
-        <!-- Profile View -->
         <div id="view-profile" class="view-content hidden">
             <div class="flex flex-col items-center gap-4 mb-8">
                 <div id="profile-avatar" class="w-20 h-20 rounded-full bg-slate-800 border-2 border-emerald-500/20 flex items-center justify-center font-black text-2xl">?</div>
                 <div id="profile-name" class="font-cyber text-sm">Runner</div>
             </div>
-            <div class="space-y-2">
-                <button class="w-full py-4 glass rounded-xl font-cyber text-[9px] text-emerald-500">Load Credits</button>
-                <button class="w-full py-4 glass rounded-xl font-cyber text-[9px] text-slate-500">Extract Funds</button>
-            </div>
+            <button class="w-full py-4 glass rounded-xl font-cyber text-[9px] text-emerald-500">Deposit Credits</button>
         </div>
 
-        <!-- Game Overlay -->
         <div id="view-game" class="fixed inset-0 z-[500] bg-[#020617] flex flex-col pointer-events-none">
-            <div class="p-4 border-b border-white/5 flex justify-between items-center glass shrink-0">
-                <div id="game-status" class="text-[8px] font-cyber text-emerald-400">Secure Session</div>
+            <div class="p-4 border-b border-white/5 flex justify-between items-center glass">
+                <div id="game-status" class="text-[8px] font-cyber text-emerald-400">Secure Matrix</div>
                 <button onclick="location.reload()" class="text-[8px] font-cyber text-rose-500 border border-rose-500/20 px-3 py-1 rounded-lg">Abort</button>
             </div>
-
             <div class="flex-1 flex flex-col justify-between p-4 py-8">
                 <div class="flex flex-col items-center">
                     <div id="dealer-hand" class="flex gap-2"></div>
-                    <div id="dealer-score" class="mt-4 px-4 py-1 glass rounded-full text-[9px] font-bold text-slate-500 uppercase tracking-widest">Dealer: ?</div>
+                    <div id="dealer-score" class="mt-4 px-4 py-1 glass rounded-full text-[9px] font-bold text-slate-500 uppercase">Dealer: ?</div>
                 </div>
-
                 <div class="grid grid-cols-2 gap-4 h-56">
                     <div id="host-zone" class="glass rounded-3xl p-4 flex flex-col items-center justify-between transition-all">
                         <div class="text-[7px] font-cyber opacity-30" id="host-name-tag">-</div>
@@ -132,13 +106,11 @@
                         <div id="guest-score" class="font-bold text-xs text-emerald-400">0</div>
                     </div>
                 </div>
-
-                <div id="game-actions" class="flex gap-4 shrink-0">
+                <div id="game-actions" class="flex gap-4">
                     <button id="btn-hit" class="flex-1 py-5 bg-emerald-600 rounded-2xl font-cyber text-xs shadow-lg active:scale-95">Hit</button>
                     <button id="btn-stand" class="flex-1 py-5 bg-slate-800 rounded-2xl font-cyber text-xs shadow-lg active:scale-95">Stand</button>
                 </div>
             </div>
-
             <div id="result-overlay" class="hidden absolute inset-0 glass z-[600] flex flex-col items-center justify-center p-10 text-center">
                 <div id="result-title" class="font-cyber text-4xl font-black mb-8 italic"></div>
                 <button onclick="location.reload()" class="w-full py-4 bg-white text-black font-cyber text-xs rounded-2xl font-bold">Back to HQ</button>
@@ -146,8 +118,7 @@
         </div>
     </div>
 
-    <!-- Bottom Navigation -->
-    <div id="main-nav" class="glass border-t border-white/5 p-4 pb-10 flex justify-around items-center z-10 shrink-0">
+    <div id="main-nav" class="glass border-t border-white/5 p-4 pb-10 flex justify-around items-center shrink-0">
         <div onclick="App.navigate('home')" id="nav-home" class="nav-item active">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-width="2"/></svg>
             <span class="text-[7px] font-cyber mt-1">HQ</span>
@@ -169,36 +140,22 @@
     <script type="module">
         import { MetroAPI } from '/api.js';
         import { MetroNetwork } from '/network.js';
-
         const tg = window.Telegram.WebApp;
 
         const App = {
-            state: { user: null, game: null, lobbyId: null, isProcessing: false },
-            esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; },
+            state: { user: null, game: null, lobbyId: null, isProcessing: false, activeTab: 'home' },
+            esc(s) { if(!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; },
 
             async init() {
                 tg.ready(); tg.expand();
                 tg.headerColor = '#020617';
-                
                 try {
-                    // Инициализация профиля
                     const data = await MetroAPI.getProfile();
                     this.state.user = data || { id: Math.floor(Math.random()*1000), name: 'Runner', balance: 0, stats: {wins:0, totalGames:0} };
                     this.updateUIProfile(this.state.user);
-                    
-                    // Инициализация сети ПОСЛЕ получения ID
-                    this.state.net = new MetroNetwork(
-                        this.state.user.id, 
-                        (d) => this.onNetMsg(d), 
-                        () => this.onPeerReady(),
-                        (err) => tg.showAlert("Signaling connection failed.")
-                    );
-                    
-                    this.setupGlobalListeners();
-                } catch (e) {
-                    console.error("Init Error:", e);
-                    tg.ready();
-                }
+                    this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
+                    this.setupListeners();
+                } catch (e) { console.error(e); tg.ready(); }
             },
 
             updateUIProfile(data) {
@@ -207,16 +164,12 @@
                 document.getElementById('stat-wins').textContent = data.stats.wins;
                 document.getElementById('stat-games').textContent = data.stats.totalGames;
                 if(data.avatarUrl) {
-                    const img = new Image();
-                    img.src = data.avatarUrl;
-                    img.className = 'w-full h-full object-cover';
-                    const box = document.getElementById('profile-avatar');
-                    box.innerHTML = '';
-                    box.appendChild(img);
+                    const img = new Image(); img.src = data.avatarUrl; img.className = 'w-full h-full object-cover';
+                    const box = document.getElementById('profile-avatar'); box.innerHTML = ''; box.appendChild(img);
                 }
             },
 
-            setupGlobalListeners() {
+            setupListeners() {
                 document.getElementById('btn-create-bj').onclick = () => this.openCreateLobby();
                 document.getElementById('btn-hit').onclick = () => this.gameAction('HIT');
                 document.getElementById('btn-stand').onclick = () => this.gameAction('STAND');
@@ -224,17 +177,12 @@
             },
 
             navigate(tab) {
-                // Прекращаем переключение если открыта игра
                 if(document.getElementById('view-game').classList.contains('active')) return;
-
+                this.state.activeTab = tab;
                 document.querySelectorAll('.view-content').forEach(v => v.classList.add('hidden'));
-                const targetView = document.getElementById(`view-${tab}`);
-                if (targetView) targetView.classList.remove('hidden');
-                
+                document.getElementById(`view-${tab}`).classList.remove('hidden');
                 document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                const targetNav = document.getElementById(`nav-${tab}`);
-                if (targetNav) targetNav.classList.add('active');
-                
+                document.getElementById(`nav-${tab}`).classList.add('active');
                 if (tab === 'servers') this.refreshLobbies();
                 if (tab === 'rank') this.loadLeaderboard();
                 if (tab === 'profile') this.loadProfileData();
@@ -242,28 +190,25 @@
 
             async loadProfileData() {
                 const data = await MetroAPI.getProfile();
-                if(data) {
-                    this.state.user = data;
-                    this.updateUIProfile(data);
-                }
+                if(data) { this.state.user = data; this.updateUIProfile(data); }
             },
 
             async refreshLobbies() {
-                const listEl = document.getElementById('server-list');
+                const list = document.getElementById('server-list');
                 const labs = await MetroAPI.getLobbies();
                 const frag = document.createDocumentFragment();
                 labs.forEach(l => {
                     const row = document.createElement('div');
-                    row.className = 'glass p-6 rounded-3xl flex justify-between items-center active:scale-95 transition-all cursor-pointer';
+                    row.className = 'glass p-6 rounded-3xl flex justify-between items-center active:scale-95 transition-all';
                     row.innerHTML = `<div class="font-bold text-sm">${this.esc(l.user)}</div><div class="text-emerald-500 font-black">${l.bet} C</div>`;
                     row.onclick = () => this.joinTable(l.id);
                     frag.appendChild(row);
                 });
-                listEl.replaceChildren(frag);
+                list.replaceChildren(frag);
             },
 
             async loadLeaderboard() {
-                const listEl = document.getElementById('leaderboard-list');
+                const list = document.getElementById('leaderboard-list');
                 const users = await MetroAPI.getLeaderboard();
                 const frag = document.createDocumentFragment();
                 users.forEach((u, i) => {
@@ -272,7 +217,7 @@
                     row.innerHTML = `<div class="flex items-center gap-3"><span class="text-[8px] opacity-30">#${i+1}</span><span class="font-bold text-xs">${this.esc(u.name)}</span></div><div class="text-emerald-400 font-black text-xs">${u.wins} W</div>`;
                     frag.appendChild(row);
                 });
-                listEl.replaceChildren(frag);
+                list.replaceChildren(frag);
             },
 
             async openCreateLobby() {
@@ -306,13 +251,8 @@
 
             toggleGameView(active) {
                 const view = document.getElementById('view-game');
-                if(active) {
-                    view.classList.add('active');
-                    view.style.pointerEvents = 'all';
-                } else {
-                    view.classList.remove('active');
-                    view.style.pointerEvents = 'none';
-                }
+                if(active) view.classList.add('active');
+                else view.classList.remove('active');
             },
 
             onNetMsg(m) { if(m.type === 'UPDATE_SIGNAL') this.sync(); },
@@ -337,21 +277,16 @@
                 this.drawCards('guest-hand', 'guest-score', g.guestHand, g.guestScore);
                 const showD = g.status === 'END' || g.status === 'DEALER_TURN';
                 this.drawCards('dealer-hand', 'dealer-score', g.dealerHand, g.dealerScore, !showD);
-                
                 document.getElementById('host-name-tag').textContent = g.hostName;
                 document.getElementById('guest-name-tag').textContent = g.guestName || 'WAITING';
-                
                 document.getElementById('host-zone').className = `glass rounded-2xl p-4 flex flex-col items-center justify-between ${g.status === 'HOST_TURN' ? 'turn-glow neon-border' : ''}`;
                 document.getElementById('guest-zone').className = `glass rounded-2xl p-4 flex flex-col items-center justify-between ${g.status === 'GUEST_TURN' ? 'turn-glow neon-border' : ''}`;
-
-                const me = g.myRole;
-                const myTurn = (me === 'host' && g.status === 'HOST_TURN') || (me === 'guest' && g.status === 'GUEST_TURN');
+                const myTurn = (g.myRole === 'host' && g.status === 'HOST_TURN') || (g.myRole === 'guest' && g.status === 'GUEST_TURN');
                 document.getElementById('game-actions').classList.toggle('btn-disabled', !myTurn);
-
                 if (g.status === 'END') {
-                    const myScore = me === 'host' ? g.hostScore : g.guestScore;
-                    const dScore = typeof g.dealerScore === 'number' ? g.dealerScore : 0;
-                    let res = (myScore > 21) ? "BUSTED" : (dScore > 21 || myScore > dScore) ? "WINNER" : (myScore === dScore) ? "PUSH" : "LOSE";
+                    const myS = g.myRole === 'host' ? g.hostScore : g.guestScore;
+                    const dS = typeof g.dealerScore === 'number' ? g.dealerScore : 0;
+                    let res = (myS > 21) ? "BUSTED" : (dS > 21 || myS > dS) ? "WINNER" : (myS === dS) ? "PUSH" : "LOSE";
                     document.getElementById('result-title').textContent = res;
                     document.getElementById('result-overlay').classList.remove('hidden');
                     this.loadProfileData();

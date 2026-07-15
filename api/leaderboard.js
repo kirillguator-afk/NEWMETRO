@@ -10,9 +10,16 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // В продакшене мы бы использовали ZRANGE, но для беты в KV 
-    // мы можем хранить список топ-игроков в отдельном ключе, обновляемом при победах.
-    const leaderboard = await kv.get('global_leaderboard') || [];
-    
-    return res.status(200).json(leaderboard.slice(0, 10));
+    try {
+        // [ATOMIC FETCH] Get top 50 players from Sorted Set
+        const top = await kv.zrange('lb_wins', 0, 49, { rev: true, withScores: true });
+        const results = [];
+        for (let i = 0; i < top.length; i += 2) {
+            const [id, name] = top[i].split(':');
+            results.push({ id, name, wins: top[i + 1] });
+        }
+        return res.status(200).json(results);
+    } catch (e) {
+        return res.status(200).json([]);
+    }
 }

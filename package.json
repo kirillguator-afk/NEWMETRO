@@ -1,8 +1,8 @@
 
 {
   "name": "metro-cash-twa",
-  "version": "1.3.0",
-  "description": "Blackjack P2P TWA - Node 24 Optimized",
+  "version": "1.4.0",
+  "description": "Blackjack P2P TWA - Ultra Stable Node 24 Edition",
   "main": "api/lobbies.js",
   "type": "module",
   "dependencies": {
