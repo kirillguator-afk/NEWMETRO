@@ -2,9 +2,7 @@
 import crypto from 'crypto';
 
 /**
- * Верификация данных Telegram Web App
- * @param {string} initData - Строка из window.Telegram.WebApp.initData
- * @param {string} botToken - Токен бота из ENV
+ * Верификация данных Telegram Web App с проверкой срока жизни сессии
  */
 export function verifyTelegramAuth(initData, botToken) {
     if (!initData) return false;
@@ -12,6 +10,14 @@ export function verifyTelegramAuth(initData, botToken) {
     const urlParams = new URLSearchParams(initData);
     const hash = urlParams.get('hash');
     urlParams.delete('hash');
+
+    // Проверка свежести данных (5 минут)
+    const authDate = parseInt(urlParams.get('auth_date'));
+    const now = Math.floor(Date.now() / 1000);
+    if (!authDate || (now - authDate) > 300) {
+        console.warn("Auth expired or timestamp missing");
+        return false;
+    }
 
     const dataCheckString = Array.from(urlParams.entries())
         .sort(([a], [b]) => a.localeCompare(b))
@@ -24,14 +30,10 @@ export function verifyTelegramAuth(initData, botToken) {
     return hmac === hash;
 }
 
-/**
- * Извлекает данные пользователя из initData
- */
 export function getUserData(initData) {
     try {
         const urlParams = new URLSearchParams(initData);
-        const user = JSON.parse(urlParams.get('user'));
-        return user;
+        return JSON.parse(urlParams.get('user'));
     } catch (e) {
         return null;
     }
