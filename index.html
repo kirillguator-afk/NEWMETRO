@@ -5,411 +5,252 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>METRO CASH - Underground Casino</title>
-    <!-- SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
-        
-        :root {
-            --neon-green: #10b981;
-            --neon-blue: #3b82f6;
-            --bg-dark: #020617;
-        }
-
-        body {
-            font-family: 'Rajdhani', sans-serif;
-            background-color: var(--bg-dark);
-            color: #e2e8f0;
-            overflow: hidden;
-            touch-action: manipulation;
-            user-select: none;
-        }
-
-        .neon-border {
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
-            border: 1px solid rgba(16, 185, 129, 0.4);
-        }
-
-        .glass {
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .server-card {
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
-            border-left: 4px solid var(--neon-green);
-        }
-
-        @keyframes scanline {
-            0% { transform: translateY(-100%); }
-            100% { transform: translateY(100%); }
-        }
-        .scanline {
-            position: absolute; width: 100%; height: 2px;
-            background: rgba(16, 185, 129, 0.1);
-            animation: scanline 4s linear infinite;
-        }
+        :root { --neon-green: #10b981; --bg-dark: #020617; }
+        body { font-family: 'Rajdhani', sans-serif; background-color: var(--bg-dark); color: #e2e8f0; overflow: hidden; }
+        .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .server-card { background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%); border-left: 4px solid var(--neon-green); }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
     </style>
 </head>
-<body class="h-screen w-full flex flex-col relative overflow-hidden">
-    <div class="scanline pointer-events-none"></div>
+<body class="h-screen w-full flex flex-col relative">
+
+    <!-- MODAL: DEPOSIT -->
+    <div id="modal-payment" class="modal hidden">
+        <div class="glass w-full max-w-sm p-6 rounded-2xl">
+            <h3 id="modal-title" class="text-xl font-bold mb-4 uppercase text-emerald-400">Deposit</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] text-slate-500 uppercase">Amount (CASH)</label>
+                    <input id="payment-amount" type="number" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-emerald-500">
+                </div>
+                <div id="withdraw-fields" class="hidden">
+                    <label class="text-[10px] text-slate-500 uppercase">Wallet / Card Details</label>
+                    <input id="payment-details" type="text" placeholder="USDT / Card / Crypto" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-emerald-500">
+                </div>
+                <button onclick="App.submitPaymentRequest()" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl">SEND REQUEST</button>
+                <button onclick="App.closeModal()" class="w-full text-slate-500 text-sm">CANCEL</button>
+            </div>
+        </div>
+    </div>
 
     <!-- VIEW: SPLASH -->
     <div id="view-splash" class="view fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950">
-        <div class="mb-8 relative">
-            <div class="w-24 h-24 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin"></div>
-            <div class="absolute inset-0 flex items-center justify-center font-bold text-emerald-500 text-2xl">M</div>
-        </div>
-        <h1 class="text-3xl font-bold tracking-widest text-white mb-2">METRO CASH</h1>
-        <p class="text-emerald-500 animate-pulse tracking-widest uppercase text-[10px]">Authenticating via Telegram...</p>
+        <div class="w-20 h-20 border-4 border-emerald-500 border-t-transparent animate-spin rounded-full"></div>
+        <p class="mt-4 text-emerald-500 uppercase tracking-widest text-[10px] animate-pulse">Connecting to Metro Network...</p>
     </div>
 
     <!-- VIEW: HOME -->
     <div id="view-home" class="view hidden flex-1 flex flex-col p-5 overflow-y-auto">
-        <!-- Profile Header -->
         <div class="flex items-center gap-4 mb-8 glass p-4 rounded-2xl">
-            <div class="relative">
-                <img id="user-avatar" src="" class="w-14 h-14 rounded-full border-2 border-emerald-500 object-cover hidden" alt="AV">
-                <div id="user-avatar-placeholder" class="w-14 h-14 rounded-full border-2 border-emerald-500 bg-slate-800 flex items-center justify-center text-xl font-bold text-emerald-500">?</div>
-                <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-slate-950"></div>
-            </div>
+            <div class="w-14 h-14 rounded-full border-2 border-emerald-500 bg-slate-800 flex items-center justify-center text-xl font-bold text-emerald-500" id="user-avatar-text">?</div>
             <div class="flex-1">
-                <h2 id="user-name" class="text-lg font-bold text-white leading-none mb-1">Loading...</h2>
+                <h2 id="user-name" class="text-lg font-bold text-white leading-none">User</h2>
                 <div class="flex items-center text-emerald-400 font-bold">
-                    <span id="user-balance" class="text-sm">0.00</span>
-                    <span class="ml-1 text-[10px] opacity-70">CASH</span>
+                    <span id="user-balance">0.00</span><span class="ml-1 text-[10px] opacity-70">CASH</span>
                 </div>
             </div>
-            <button onclick="App.sendBotCommand('PROFILE')" class="p-2 bg-slate-800 rounded-lg">
-                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-            </button>
+            <button onclick="location.href='admin.html'" class="p-2 bg-slate-800 rounded-lg">⚙️</button>
         </div>
 
-        <!-- Tabs -->
         <div class="flex gap-2 mb-6">
             <button onclick="App.setHomeTab('games')" id="tab-btn-games" class="flex-1 py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm uppercase">Games</button>
             <button onclick="App.setHomeTab('servers')" id="tab-btn-servers" class="flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 font-bold text-sm uppercase">Servers</button>
         </div>
 
-        <!-- Tab: Games -->
         <div id="tab-games" class="space-y-4">
-            <div onclick="App.openCreateLobby('blackjack')" class="p-4 rounded-xl glass border border-slate-800 hover:border-emerald-500 transition-all active:scale-95 cursor-pointer relative overflow-hidden group">
-                <div class="absolute right-0 top-0 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <span class="text-8xl">♠️</span>
-                </div>
-                <h3 class="text-xl font-bold text-white mb-1">BLACKJACK</h3>
-                <p class="text-xs text-slate-400">Standard casino rules. Min bet 10 CASH.</p>
-                <div class="mt-4 flex items-center text-[10px] text-emerald-500 font-bold tracking-tighter">
-                    CREATE HOST &rarr;
-                </div>
+            <div onclick="App.openCreateLobby('blackjack')" class="p-4 rounded-xl glass border border-slate-800 hover:border-emerald-500 transition-all cursor-pointer">
+                <h3 class="text-xl font-bold text-white">BLACKJACK</h3>
+                <p class="text-xs text-slate-400">Host your own table and win.</p>
             </div>
         </div>
 
-        <!-- Tab: Servers -->
         <div id="tab-servers" class="hidden space-y-3">
-            <div class="flex justify-between items-center mb-2">
-                <span class="text-[10px] text-slate-500 uppercase tracking-widest">Active Lobbies</span>
-                <button onclick="App.registry.refresh()" class="text-[10px] text-emerald-500 uppercase font-bold">Refresh</button>
-            </div>
             <div id="server-list" class="space-y-3">
-                <!-- Servers injected here -->
-                <div class="text-center py-10 text-slate-600 text-xs italic">Scanning for signals...</div>
+                <div class="text-center py-10 text-slate-600 text-xs">Scanning for signals...</div>
             </div>
         </div>
 
-        <!-- Bottom Actions -->
         <div class="mt-auto grid grid-cols-2 gap-3 pt-6">
-            <button onclick="App.sendBotCommand('DEPOSIT')" class="bg-slate-800 border border-slate-700 text-white font-bold py-3 rounded-xl active:bg-slate-700 transition-colors">DEPOSIT</button>
-            <button onclick="App.sendBotCommand('WITHDRAW')" class="bg-slate-800 border border-slate-700 text-white font-bold py-3 rounded-xl active:bg-slate-700 transition-colors">WITHDRAW</button>
+            <button onclick="App.openPaymentModal('DEPOSIT')" class="bg-emerald-600/20 border border-emerald-500 text-emerald-500 font-bold py-3 rounded-xl uppercase">Deposit</button>
+            <button onclick="App.openPaymentModal('WITHDRAW')" class="bg-slate-800 border border-slate-700 text-white font-bold py-3 rounded-xl uppercase">Withdraw</button>
         </div>
     </div>
 
-    <!-- VIEW: LOBBY CONFIG -->
-    <div id="view-lobby-config" class="view hidden flex-1 flex flex-col p-6 items-center justify-center">
-        <h2 class="text-2xl font-bold mb-6">SETUP GAME</h2>
-        <div class="w-full glass p-6 rounded-2xl mb-8">
-            <label class="block text-[10px] text-slate-500 uppercase mb-2">Entry Bet (CASH)</label>
-            <input id="input-bet" type="number" value="100" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 text-emerald-400 font-bold text-xl outline-none focus:border-emerald-500 transition-colors">
-            <p class="text-[10px] text-slate-500 mt-2 italic">Platform fee: 5%</p>
-        </div>
-        <button onclick="App.createGameAction()" class="w-full py-4 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-900/20 uppercase">Initialize & Publish</button>
-        <button onclick="App.switchView('home')" class="mt-4 text-slate-500 font-bold text-sm">CANCEL</button>
+    <!-- LOBBY & GAME VIEWS (Keep structure from previous but simplified for integration) -->
+    <div id="view-lobby-config" class="view hidden p-6 text-center">
+        <h2 class="text-2xl font-bold mb-6 mt-20">CREATE TABLE</h2>
+        <input id="input-bet" type="number" value="100" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-emerald-400 text-2xl text-center mb-6">
+        <button onclick="App.createGameAction()" class="w-full py-4 bg-emerald-600 text-white font-bold rounded-xl">PUBLISH TO CHANNEL</button>
+        <button onclick="App.switchView('home')" class="mt-4 text-slate-500">BACK</button>
     </div>
 
-    <!-- VIEW: LOBBY WAIT -->
-    <div id="view-lobby-wait" class="view hidden flex-1 flex flex-col p-6 items-center justify-center text-center">
-        <div class="w-20 h-20 mb-6 relative">
-            <div class="absolute inset-0 border-4 border-emerald-500/20 rounded-full"></div>
-            <div class="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-        <h2 class="text-xl font-bold mb-2 uppercase">Publishing to Metro Channel...</h2>
-        <div id="lobby-id-display" class="text-xs font-mono text-emerald-500 mb-8">...</div>
-        <div class="glass p-4 rounded-xl w-full text-sm text-slate-400">
-            Waiting for players to join from the channel.
-        </div>
+    <div id="view-lobby-wait" class="view hidden p-6 text-center">
+        <div class="w-20 h-20 border-4 border-emerald-500 border-t-transparent animate-spin rounded-full mx-auto mt-20"></div>
+        <h2 class="text-xl font-bold mt-6">LOBBY ACTIVE</h2>
+        <p class="text-xs text-slate-500 mt-2">Waiting for opponent from channel...</p>
+        <div id="lobby-id-display" class="mt-10 font-mono text-emerald-500 opacity-50"></div>
+        <button onclick="App.cancelLobby()" class="mt-10 text-red-500 font-bold">CANCEL</button>
     </div>
 
-    <!-- VIEW: GAME (SAME AS PREVIOUS) -->
-    <div id="view-game" class="view hidden flex-1 flex flex-col relative overflow-hidden">
-        <!-- Game UI contents remain the same -->
-        <div class="absolute top-4 left-4 right-4 flex justify-between z-10">
-            <div class="glass p-2 px-4 rounded-full border border-slate-700 text-xs font-bold">
-                POT: <span id="game-pot" class="text-emerald-400">0</span> CASH
-            </div>
-            <button onclick="App.leaveGame()" class="text-slate-400 hover:text-white">EXIT</button>
-        </div>
-        <div class="flex-1 flex flex-col items-center justify-start pt-16">
-            <div id="dealer-cards" class="flex gap-2 min-h-[100px]"></div>
-            <div id="dealer-score" class="mt-2 text-xs text-slate-400 font-bold"></div>
-        </div>
-        <div class="h-1 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent my-4"></div>
-        <div class="flex-1 flex flex-col items-center justify-end pb-24">
-            <div id="player-score" class="mb-2 text-xs text-emerald-400 font-bold"></div>
-            <div id="player-cards" class="flex gap-2 min-h-[100px]"></div>
-        </div>
-        <div id="game-controls" class="absolute bottom-6 left-0 right-0 px-6 grid grid-cols-2 gap-4 z-20">
-            <button id="btn-hit" onclick="App.blackjack.hit()" class="bg-blue-600 text-white font-bold py-4 rounded-xl uppercase">Hit</button>
-            <button id="btn-stand" onclick="App.blackjack.stand()" class="bg-slate-700 text-white font-bold py-4 rounded-xl uppercase">Stand</button>
-        </div>
-        <div id="game-result" class="hidden absolute inset-0 glass z-30 flex flex-col items-center justify-center text-center p-6">
-            <h2 id="result-title" class="text-4xl font-black mb-2 italic">YOU WIN</h2>
-            <p id="result-desc" class="text-slate-400 mb-8"></p>
-            <button onclick="App.restartGame()" class="w-full bg-emerald-600 py-4 rounded-xl font-bold uppercase">Play Again</button>
-        </div>
-    </div>
+    <script type="module">
+        import { MetroAPI, CHANNEL_ID } from './api.js';
 
-    <script>
         const tg = window.Telegram.WebApp;
-        const BOT_TOKEN = '8575086263:AAG74PmRjUT8ExtDkC_kOxfYfmss2BG0C_A';
-        const CHANNEL_ID = '-1004498586017';
-
-        const App = {
+        
+        window.App = {
             state: {
-                user: { id: 0, name: 'Anonymous', balance: 1000, photo: null },
-                role: 'host',
-                gameType: 'blackjack',
-                currentBet: 100,
-                gameState: { dealer: [], player: [], status: 'waiting', deck: [] }
-            },
-
-            network: {
-                peer: null, conn: null, id: null,
-                init() {
-                    const peerId = `metro_${tg.initDataUnsafe?.user?.id || Math.floor(Math.random()*10000)}`;
-                    this.peer = new Peer(peerId);
-                    this.peer.on('open', id => this.id = id);
-                    this.peer.on('connection', conn => {
-                        this.conn = conn;
-                        App.state.role = 'host';
-                        this.setup();
-                        App.startGameSession();
-                    });
-                },
-                connect(targetId) {
-                    this.conn = this.peer.connect(targetId);
-                    App.state.role = 'client';
-                    this.setup();
-                },
-                setup() {
-                    this.conn.on('open', () => App.startGameSession());
-                    this.conn.on('data', data => App.handleNetworkMessage(data));
-                },
-                send(msg) { if(this.conn?.open) this.conn.send(msg); }
-            },
-
-            registry: {
-                async publish(peerId, bet) {
-                    const name = App.state.user.name;
-                    const text = `#METRO_LOBBY|ID:${peerId}|USER:${name}|BET:${bet}`;
-                    try {
-                        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ chat_id: CHANNEL_ID, text: text })
-                        });
-                        console.log("Lobby published to channel");
-                    } catch (e) { console.error("Publish failed", e); }
-                },
-
-                async refresh() {
-                    const listEl = document.getElementById('server-list');
-                    listEl.innerHTML = '<div class="animate-pulse text-center text-xs text-emerald-500">POLLING CHANNEL...</div>';
-                    
-                    try {
-                        // In a real prod environment, we'd use a backend to cache channel history.
-                        // Here we use getUpdates as a workaround for "Live" lobbies.
-                        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-10`);
-                        const data = await res.json();
-                        
-                        const lobbies = [];
-                        if(data.result) {
-                            data.result.forEach(u => {
-                                const msg = u.channel_post?.text || u.message?.text || "";
-                                if(msg.startsWith('#METRO_LOBBY')) {
-                                    const parts = msg.split('|');
-                                    lobbies.push({
-                                        id: parts[1].split(':')[1],
-                                        user: parts[2].split(':')[1],
-                                        bet: parts[3].split(':')[1]
-                                    });
-                                }
-                            });
-                        }
-
-                        if(lobbies.length === 0) {
-                            listEl.innerHTML = '<div class="text-center py-10 text-slate-600 text-xs italic">No active signals found in channel.</div>';
-                        } else {
-                            listEl.innerHTML = lobbies.reverse().map(l => `
-                                <div onclick="App.network.connect('${l.id}')" class="server-card p-4 rounded-xl flex justify-between items-center active:scale-95 transition-transform cursor-pointer">
-                                    <div>
-                                        <div class="text-white font-bold text-sm">${l.user}'s Room</div>
-                                        <div class="text-[10px] text-slate-500 font-mono">${l.id.substring(0,12)}...</div>
-                                    </div>
-                                    <div class="text-right">
-                                        <div class="text-emerald-400 font-bold">${l.bet} CASH</div>
-                                        <div class="text-[10px] text-slate-500">ENTRY FEE</div>
-                                    </div>
-                                </div>
-                            `).join('');
-                        }
-                    } catch (e) { 
-                        listEl.innerHTML = '<div class="text-red-500 text-xs text-center">Connection to Telegram Lost</div>';
-                    }
-                }
+                user: { id: 0, name: 'Guest', balance: 1000 },
+                activeTab: 'games',
+                lobbyHeartbeat: null,
+                paymentMode: 'DEPOSIT',
+                peer: null, conn: null, peerId: null
             },
 
             async init() {
                 tg.ready();
-                const user = tg.initDataUnsafe?.user;
-                if(user) {
-                    this.state.user.name = user.first_name + (user.last_name ? ' ' + user.last_name : '');
-                    this.state.user.id = user.id;
-                    if(user.photo_url) {
-                        const avatarImg = document.getElementById('user-avatar');
-                        avatarImg.src = user.photo_url;
-                        avatarImg.classList.remove('hidden');
-                        document.getElementById('user-avatar-placeholder').classList.add('hidden');
-                    } else {
-                        document.getElementById('user-avatar-placeholder').innerText = user.first_name[0];
-                    }
+                tg.expand();
+                const u = tg.initDataUnsafe?.user;
+                if(u) {
+                    this.state.user.id = u.id;
+                    this.state.user.name = u.first_name;
+                    document.getElementById('user-name').innerText = u.first_name;
+                    document.getElementById('user-avatar-text').innerText = u.first_name[0];
                 }
-
-                document.getElementById('user-name').innerText = this.state.user.name;
-                document.getElementById('user-balance').innerText = this.state.user.balance.toFixed(2);
                 
-                this.network.init();
-                setTimeout(() => this.switchView('home'), 1500);
-                
-                // Refresh servers every 30s
-                setInterval(() => this.registry.refresh(), 30000);
+                this.initNetwork();
+                setTimeout(() => this.switchView('home'), 1000);
+                setInterval(() => this.refreshServers(), 10000);
             },
 
-            switchView(viewId) {
+            initNetwork() {
+                const id = `metro_${this.state.user.id || Math.floor(Math.random()*1000)}`;
+                this.state.peer = new Peer(id);
+                this.state.peer.on('open', (pid) => this.state.peerId = pid);
+                this.state.peer.on('connection', (conn) => {
+                    this.state.conn = conn;
+                    this.setupConnection();
+                    alert("Player joined! Game starting...");
+                });
+            },
+
+            setupConnection() {
+                this.state.conn.on('open', () => {
+                    // Logic to start game
+                });
+            },
+
+            switchView(id) {
                 document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-                document.getElementById(`view-${viewId}`).classList.remove('hidden');
+                document.getElementById(`view-${id}`).classList.remove('hidden');
             },
 
             setHomeTab(tab) {
+                this.state.activeTab = tab;
                 document.getElementById('tab-games').classList.toggle('hidden', tab !== 'games');
                 document.getElementById('tab-servers').classList.toggle('hidden', tab !== 'servers');
-                document.getElementById('tab-btn-games').className = tab === 'games' ? 'flex-1 py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm uppercase' : 'flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 font-bold text-sm uppercase';
-                document.getElementById('tab-btn-servers').className = tab === 'servers' ? 'flex-1 py-2 rounded-lg bg-emerald-600 text-white font-bold text-sm uppercase' : 'flex-1 py-2 rounded-lg bg-slate-800 text-slate-400 font-bold text-sm uppercase';
-                if(tab === 'servers') this.registry.refresh();
+                if(tab === 'servers') this.refreshServers();
             },
 
-            openCreateLobby(type) {
-                this.state.gameType = type;
-                this.switchView('lobby-config');
-            },
-
+            // --- LOBBY LOGIC ---
             async createGameAction() {
-                const bet = parseInt(document.getElementById('input-bet').value);
-                if(bet > this.state.user.balance) return alert("Insufficient balance!");
-                
-                this.state.currentBet = bet;
+                const bet = document.getElementById('input-bet').value;
                 this.switchView('lobby-wait');
-                
-                // Wait for Peer ID
-                const checkPeer = setInterval(() => {
-                    if(this.network.id) {
-                        clearInterval(checkPeer);
-                        document.getElementById('lobby-id-display').innerText = this.network.id;
-                        this.registry.publish(this.network.id, bet);
-                    }
-                }, 500);
+                document.getElementById('lobby-id-display').innerText = this.state.peerId;
+
+                // Heartbeat system: репостим лобби каждые 30 сек чтобы оно было в топе
+                const publish = async () => {
+                    const text = `#METRO_LOBBY|ID:${this.state.peerId}|USER:${this.state.user.name}|BET:${bet}`;
+                    await MetroAPI.sendMessage(CHANNEL_ID, text);
+                };
+
+                publish();
+                this.state.lobbyHeartbeat = setInterval(publish, 45000);
             },
 
-            startGameSession() {
-                this.switchView('game');
-                document.getElementById('game-pot').innerText = (this.state.currentBet * 2 * 0.95).toFixed(0);
-                if(this.state.role === 'host') this.blackjack.initGame();
+            cancelLobby() {
+                if(this.state.lobbyHeartbeat) clearInterval(this.state.lobbyHeartbeat);
+                this.switchView('home');
             },
 
-            handleNetworkMessage(data) {
-                if(data.type === 'STATE_UPDATE') { this.state.gameState = data.payload; this.renderGame(); }
-                if(data.type === 'ACTION' && this.state.role === 'host') this.blackjack.handleClientAction(data.payload);
-            },
+            async refreshServers() {
+                if(this.state.activeTab !== 'servers') return;
+                const listEl = document.getElementById('server-list');
+                const updates = await MetroAPI.getUpdates();
+                
+                const lobbies = [];
+                updates.forEach(u => {
+                    const msg = u.channel_post || u.message;
+                    if(!msg) return;
+                    const data = MetroAPI.parseLobby(msg.text, msg.date);
+                    if(data) lobbies.push(data);
+                });
 
-            renderGame() {
-                const gs = this.state.gameState;
-                const getCard = (c) => `<div class="w-14 h-20 bg-white rounded border flex flex-col p-1 text-black font-bold text-xs"><span>${c.val}</span><span class="self-center text-xl">${c.suit}</span></div>`;
-                
-                document.getElementById('dealer-cards').innerHTML = gs.dealer.map((c, i) => (gs.status === 'playing' && i === 1) ? `<div class="w-14 h-20 bg-slate-700 rounded border border-slate-600"></div>` : getCard(c)).join('');
-                document.getElementById('player-cards').innerHTML = gs.player.map(c => getCard(c)).join('');
-                
-                document.getElementById('player-score').innerText = this.blackjack.calcScore(gs.player);
-                document.getElementById('dealer-score').innerText = gs.status === 'playing' ? '?' : this.blackjack.calcScore(gs.dealer);
-                
-                document.getElementById('game-controls').classList.toggle('hidden', gs.status !== 'playing');
-                if(gs.status === 'ended') {
-                    const res = document.getElementById('game-result');
-                    res.classList.remove('hidden');
-                    document.getElementById('result-title').innerText = gs.winner === 'PLAYER' ? 'VICTORY' : (gs.winner === 'PUSH' ? 'PUSH' : 'DEFEAT');
-                    document.getElementById('result-desc').innerText = gs.winner === 'PLAYER' ? `+${(this.state.currentBet * 1.9).toFixed(0)} CASH` : '';
-                } else {
-                    document.getElementById('game-result').classList.add('hidden');
+                // Unique by ID
+                const uniqueLobbies = Array.from(new Map(lobbies.map(l => [l.id, l])).values());
+
+                if(uniqueLobbies.length === 0) {
+                    listEl.innerHTML = '<div class="text-center py-10 text-slate-600 text-xs italic">No active lobbies. Create your own!</div>';
+                    return;
                 }
+
+                listEl.innerHTML = uniqueLobbies.map(l => `
+                    <div onclick="App.joinLobby('${l.id}')" class="server-card p-4 rounded-xl flex justify-between items-center active:scale-95 transition-transform cursor-pointer">
+                        <div>
+                            <div class="text-white font-bold text-sm">${l.user}'s Room</div>
+                            <div class="text-[10px] text-emerald-500">ONLINE</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-emerald-400 font-bold">${l.bet} CASH</div>
+                            <div class="text-[10px] text-slate-500 uppercase">Bet</div>
+                        </div>
+                    </div>
+                `).join('');
             },
 
-            blackjack: {
-                initGame() {
-                    const suits = ['♠', '♥', '♦', '♣'], vals = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
-                    let deck = []; suits.forEach(s => vals.forEach(v => deck.push({suit: s, val: v})));
-                    deck.sort(() => Math.random() - 0.5);
-                    App.state.gameState = { deck, dealer: [deck.pop(), deck.pop()], player: [deck.pop(), deck.pop()], status: 'playing', winner: null };
-                    App.sync(); App.renderGame();
-                },
-                calcScore(hand) {
-                    let t = 0, a = 0;
-                    hand.forEach(c => { if(['J','Q','K'].includes(c.val)) t+=10; else if(c.val==='A'){ t+=11; a++; } else t+=parseInt(c.val); });
-                    while(t>21 && a>0){ t-=10; a--; } return t;
-                },
-                hit() {
-                    if(App.state.role==='host'){
-                        App.state.gameState.player.push(App.state.gameState.deck.pop());
-                        if(this.calcScore(App.state.gameState.player) > 21) this.stand();
-                        App.sync(); App.renderGame();
-                    } else App.network.send({type:'ACTION', payload:'HIT'});
-                },
-                stand() {
-                    if(App.state.role==='host'){
-                        const gs = App.state.gameState; gs.status = 'dealer_turn';
-                        while(this.calcScore(gs.dealer) < 17) gs.dealer.push(gs.deck.pop());
-                        const p = this.calcScore(gs.player), d = this.calcScore(gs.dealer);
-                        if(p>21) gs.winner='DEALER'; else if(d>21||p>d) gs.winner='PLAYER'; else if(d>p) gs.winner='DEALER'; else gs.winner='PUSH';
-                        gs.status='ended'; App.sync(); App.renderGame();
-                    } else App.network.send({type:'ACTION', payload:'STAND'});
-                },
-                handleClientAction(a) { if(a==='HIT') this.hit(); if(a==='STAND') this.stand(); }
+            joinLobby(targetId) {
+                if(targetId === this.state.peerId) return alert("You cannot join your own lobby");
+                this.state.conn = this.state.peer.connect(targetId);
+                this.setupConnection();
+                alert("Connecting to host...");
             },
 
-            sync() { if(this.state.role==='host') this.network.send({type:'STATE_UPDATE', payload:this.state.gameState}); },
-            restartGame() { if(this.state.role==='host') this.blackjack.initGame(); },
-            leaveGame() { this.switchView('home'); },
-            sendBotCommand(c) { tg.sendData(c); }
+            // --- PAYMENT LOGIC ---
+            openPaymentModal(type) {
+                this.state.paymentMode = type;
+                document.getElementById('modal-title').innerText = type;
+                document.getElementById('withdraw-fields').classList.toggle('hidden', type === 'DEPOSIT');
+                document.getElementById('modal-payment').classList.remove('hidden');
+            },
+
+            closeModal() {
+                document.getElementById('modal-payment').classList.add('hidden');
+            },
+
+            async submitPaymentRequest() {
+                const amount = document.getElementById('payment-amount').value;
+                const details = document.getElementById('payment-details').value;
+                
+                if(!amount || amount <= 0) return alert("Enter valid amount");
+
+                const text = `#PAY_REQ|TYPE:${this.state.paymentMode}|USER:${this.state.user.name}|ID:${this.state.user.id}|AMT:${amount}|INFO:${details || 'N/A'}`;
+                
+                tg.showConfirm(`Send ${this.state.paymentMode} request for ${amount} CASH?`, async (ok) => {
+                    if(ok) {
+                        tg.MainButton.showProgress();
+                        const res = await MetroAPI.sendMessage(CHANNEL_ID, text); // Для примера в канал, лучше в личку админу
+                        tg.MainButton.hideProgress();
+                        if(res) {
+                            alert("Request sent! Wait for admin approval.");
+                            this.closeModal();
+                        }
+                    }
+                });
+            }
         };
 
         window.addEventListener('load', () => App.init());
