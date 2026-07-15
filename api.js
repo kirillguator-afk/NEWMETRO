@@ -1,7 +1,7 @@
 
 /**
  * Клиентский API-клиент для взаимодействия с Vercel Serverless Functions
- * Nexus Prime: Enhanced with Turn tracking and 429/409 handling
+ * Nexus Prime: Добавлены проверки res.ok и абсолютные пути
  */
 const getAuthHeaders = () => ({
     'x-telegram-init-data': window.Telegram?.WebApp?.initData || '',
@@ -12,13 +12,17 @@ export const MetroAPI = {
     async getLobbies() {
         try {
             const res = await fetch('/api/lobbies', { headers: getAuthHeaders() });
+            if (!res.ok) throw new Error('Lobbies fetch failed');
             return await res.json();
-        } catch (e) { return []; }
+        } catch (e) { 
+            console.error(e);
+            return []; 
+        }
     },
 
     async publishLobby(userId, userName, bet, avatarUrl = null, peerId) {
         try {
-            await fetch('/api/lobbies', {
+            const res = await fetch('/api/lobbies', {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ 
@@ -28,7 +32,8 @@ export const MetroAPI = {
                     avatar: avatarUrl 
                 })
             });
-        } catch (e) {}
+            return res.ok;
+        } catch (e) { return false; }
     },
 
     async startGame(lobbyId, bet) {
@@ -37,6 +42,7 @@ export const MetroAPI = {
             headers: getAuthHeaders(),
             body: JSON.stringify({ action: 'START', lobbyId, bet })
         });
+        if (!res.ok) return { error: 'Failed to start game' };
         return res.json();
     },
 
@@ -48,12 +54,13 @@ export const MetroAPI = {
                 body: JSON.stringify({ 
                     action, 
                     lobbyId, 
-                    expectedTurn: currentTurn // Pass version to prevent race conditions
+                    expectedTurn: currentTurn
                 })
             });
 
-            if (res.status === 429) return { error: 'Too Many Requests. Slow down.' };
-            if (res.status === 409) return { error: 'Action conflict. Syncing...' };
+            if (res.status === 429) return { error: 'Too Many Requests' };
+            if (res.status === 409) return { error: 'Sync error' };
+            if (!res.ok) return { error: 'Action failed' };
 
             return await res.json();
         } catch (e) {
@@ -64,6 +71,7 @@ export const MetroAPI = {
     async getUserProfile() {
         try {
             const res = await fetch('/api/avatar/profile', { headers: getAuthHeaders() });
+            if (!res.ok) return { avatarUrl: null };
             return await res.json();
         } catch (e) { return { avatarUrl: null }; }
     },
@@ -74,33 +82,20 @@ export const MetroAPI = {
                 method: 'POST',
                 headers: {
                     'x-telegram-init-data': window.Telegram?.WebApp?.initData || '',
-                    'Content-Type': file.type,
-                    'Content-Length': file.size.toString()
+                    'Content-Type': file.type
                 },
                 body: file
             });
+            if (!res.ok) return null;
             return await res.json();
-        } catch (e) {
-            return null;
-        }
+        } catch (e) { return null; }
     },
 
     async getAdminPayments() {
         try {
             const res = await fetch('/api/payments', { headers: getAuthHeaders() });
+            if (!res.ok) return { error: 'Access denied' };
             return await res.json();
         } catch (e) { return { error: 'Fetch failed' }; }
-    },
-
-    async requestPayment(amount, payType, info) {
-        try {
-            const res = await fetch('/api/payments', {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({ amount, payType, info })
-            });
-            if (res.status === 429) return { error: 'Withdrawal limit reached. Try in 30s.' };
-            return await res.json();
-        } catch (e) { return { error: 'Network error' }; }
     }
 };

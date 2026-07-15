@@ -85,8 +85,9 @@
     </div>
 
     <script type="module">
-        import { MetroAPI } from './api.js';
-        import { MetroNetwork } from './network.js';
+        // Nexus Prime: Using absolute paths to avoid rewrite issues
+        import { MetroAPI } from '/api.js';
+        import { MetroNetwork } from '/network.js';
 
         const tg = window.Telegram.WebApp;
         
@@ -97,23 +98,41 @@
                 lobbyId: null,
                 net: null,
                 activeTab: 'games',
-                isProcessing: false // [UX] Anti-double click flag
+                isProcessing: false
             },
 
             async init() {
-                tg.ready();
-                tg.expand();
-                const u = tg.initDataUnsafe?.user;
-                if(u) {
-                    this.state.user.id = u.id;
-                    this.state.user.name = u.first_name;
-                    document.getElementById('ui-name').textContent = u.first_name;
-                    const prof = await MetroAPI.getUserProfile();
-                    if(prof?.avatarUrl) this.updateAvatarUI(prof.avatarUrl);
+                try {
+                    console.log("App initializing...");
+                    tg.ready();
+                    tg.expand();
+                    
+                    const u = tg.initDataUnsafe?.user;
+                    if(u) {
+                        this.state.user.id = u.id;
+                        this.state.user.name = u.first_name;
+                        document.getElementById('ui-name').textContent = u.first_name;
+                        
+                        // Defensive API call
+                        const prof = await MetroAPI.getUserProfile();
+                        if(prof && prof.avatarUrl) this.updateAvatarUI(prof.avatarUrl);
+                    } else {
+                        console.warn("No Telegram user data found. Are you in TWA?");
+                    }
+                    
+                    this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
+                    
+                    this.setupListeners();
+                    console.log("App ready.");
+                } catch (error) {
+                    console.error("Critical init error:", error);
+                    // Force ready even on error to avoid black screen
+                    tg.ready();
+                    tg.showAlert("Failed to sync with Metro Node. Please restart.");
                 }
-                
-                this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
-                
+            },
+
+            setupListeners() {
                 document.getElementById('avatar-trigger').onclick = () => document.getElementById('avatar-input').click();
                 document.getElementById('avatar-input').onchange = (e) => this.handleAvatarUpload(e);
                 document.getElementById('tab-btn-games').onclick = () => this.setTab('games');
@@ -122,7 +141,9 @@
                 document.getElementById('btn-hit').onclick = () => this.gameAction('HIT');
                 document.getElementById('btn-stand').onclick = () => this.gameAction('STAND');
 
-                setInterval(() => { if(this.state.activeTab === 'servers') this.refreshLobbies(); }, 10000);
+                setInterval(() => { 
+                    if(this.state.activeTab === 'servers') this.refreshLobbies(); 
+                }, 10000);
             },
 
             async handleAvatarUpload(e) {
@@ -135,6 +156,7 @@
             updateAvatarUI(url) {
                 this.state.user.avatarUrl = url;
                 const container = document.getElementById('ui-avatar');
+                if(!container) return;
                 container.innerHTML = '';
                 const img = document.createElement('img');
                 img.src = url;
@@ -148,8 +170,13 @@
                 document.getElementById('pane-servers').classList.toggle('hidden', t !== 'servers');
                 const btnG = document.getElementById('tab-btn-games');
                 const btnS = document.getElementById('tab-btn-servers');
-                btnG.className = t === 'games' ? 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-[10px] uppercase' : 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-[10px] uppercase';
-                btnS.className = t === 'servers' ? 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-[10px] uppercase' : 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-[10px] uppercase';
+                
+                const activeCls = 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-[10px] uppercase';
+                const inactiveCls = 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-[10px] uppercase';
+                
+                btnG.className = t === 'games' ? activeCls : inactiveCls;
+                btnS.className = t === 'servers' ? activeCls : inactiveCls;
+                
                 if(t === 'servers') this.refreshLobbies();
             },
 
@@ -241,7 +268,7 @@
                 
                 if(newState.error) {
                     tg.showAlert(newState.error);
-                    if(newState.error.includes('Syncing')) this.syncState();
+                    if(newState.error.includes('Sync')) this.syncState();
                     this.setControlsActive(true);
                     return;
                 }
@@ -314,7 +341,8 @@
 
             showView(v) {
                 document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
-                document.getElementById(`view-${v}`).classList.remove('hidden');
+                const target = document.getElementById(`view-${v}`);
+                if(target) target.classList.remove('hidden');
             }
         };
 
