@@ -1,7 +1,12 @@
 
 export const BOT_TOKEN = '8575086263:AAG74PmRjUT8ExtDkC_kOxfYfmss2BG0C_A';
 export const CHANNEL_ID = '-1004498586017';
-export const OWNER_ID = 123456789; 
+export const OWNER_ID = 123456789; // Замените на ваш ID
+
+/**
+ * ВАЖНО: Для GitHub Pages токен остается в коде. 
+ * В продакшене замените прямые вызовы fetch на ваш прокси-сервер (Vercel/Netlify Functions).
+ */
 
 export const MetroAPI = {
     async sendMessage(chatId, text) {
@@ -17,60 +22,42 @@ export const MetroAPI = {
 
     async getUpdates() {
         try {
-            // Используем offset -100 чтобы всегда получать последние 100 сообщений
+            // Получаем последние 100 обновлений для актуальности списка
             const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=-100&limit=100&allowed_updates=["channel_post","message"]`);
             const data = await response.json();
             return data.ok ? data.result : [];
-        } catch (e) { 
-            console.error("MetroAPI: Fetch error", e);
-            return []; 
-        }
+        } catch (e) { return []; }
     },
 
-    parseLobby(text, date) {
-        if (!text || !text.includes('#METRO_LOBBY')) return null;
-        
-        const now = Math.floor(Date.now() / 1000);
-        // Увеличиваем срок жизни до 300 секунд (5 минут) для стабильности
-        if (now - date > 300) return null; 
+    /**
+     * Создает структурированное сообщение с JSON
+     */
+    async publishLobby(userId, userName, bet) {
+        const payload = {
+            type: 'LOBBY',
+            id: `metro_${userId}`,
+            user: userName,
+            bet: parseInt(bet),
+            ts: Math.floor(Date.now() / 1000)
+        };
+        const text = `#METRO_JSON|${JSON.stringify(payload)}`;
+        return await this.sendMessage(CHANNEL_ID, text);
+    },
 
+    parseData(text, date) {
+        if (!text || !text.startsWith('#METRO_JSON|')) return null;
         try {
-            // Очищаем текст от HTML тегов, которые может добавить Telegram
-            const cleanText = text.replace(/<[^>]*>/g, '');
-            const parts = cleanText.split('|');
-            const data = {};
+            const jsonStr = text.split('|')[1];
+            const data = JSON.parse(jsonStr);
             
-            parts.forEach(p => {
-                const kv = p.split(':');
-                if (kv.length >= 2) {
-                    const key = kv[0].replace('#METRO_LOBBY', '').trim();
-                    const val = kv.slice(1).join(':').trim(); // Собираем остаток (для ID с двоеточиями)
-                    data[key] = val;
-                }
-            });
+            // Проверка "свежести" (не старше 10 минут для пользовательских серверов)
+            const now = Math.floor(Date.now() / 1000);
+            if (now - date > 600) return null;
             
-            if (!data.ID) return null;
-
-            return { 
-                id: data.ID, 
-                user: data.USER || 'Unknown Runner', 
-                bet: data.BET || '0', 
-                timestamp: date 
-            };
+            return { ...data, timestamp: date };
         } catch (e) {
-            console.error("Parse error:", e);
+            console.error("MetroAPI: JSON Parse Error", e);
             return null;
         }
-    },
-
-    parsePayment(text) {
-        if (!text || !text.includes('#PAY_REQ')) return null;
-        const parts = text.split('|');
-        const data = {};
-        parts.forEach(p => {
-            const [k, v] = p.split(':');
-            if (k && v) data[k.replace('#PAY_REQ|', '')] = v;
-        });
-        return data;
     }
 };

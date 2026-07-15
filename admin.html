@@ -4,31 +4,78 @@
 <head>
     <meta charset="UTF-8">
     <title>METRO ADMIN</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-950 text-white p-6">
-    <h1 class="text-2xl font-black text-emerald-500 mb-6">PAYMENT OPERATIONS</h1>
-    <div id="list" class="space-y-4">Loading requests...</div>
+<body class="bg-slate-950 text-white p-6 font-sans">
+    <header class="flex justify-between items-center mb-10">
+        <h1 class="text-2xl font-black text-emerald-500 tracking-tighter">METRO_OPS</h1>
+        <div id="admin-id" class="text-[10px] bg-white/5 px-3 py-1 rounded-full opacity-50 font-mono">---</div>
+    </header>
+    
+    <div id="admin-content" class="hidden">
+        <div id="list" class="space-y-4">Scanning blockchain...</div>
+    </div>
+
+    <div id="access-denied" class="hidden text-center py-20">
+        <div class="text-6xl mb-4">🔒</div>
+        <h2 class="text-xl font-bold">UNAUTHORIZED ACCESS</h2>
+        <p class="text-slate-500 text-sm mt-2">Your ID is not in the whitelist.</p>
+    </div>
 
     <script type="module">
-        import { MetroAPI } from './api.js';
+        import { MetroAPI, OWNER_ID } from './api.js';
+        
+        const tg = window.Telegram.WebApp;
+        const listEl = document.getElementById('list');
+
+        async function init() {
+            tg.ready();
+            const user = tg.initDataUnsafe?.user;
+            
+            if (!user || user.id !== OWNER_ID) {
+                document.getElementById('access-denied').classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('admin-id').innerText = `ADMIN: ${user.id}`;
+            document.getElementById('admin-content').classList.remove('hidden');
+            load();
+            setInterval(load, 15000);
+        }
+
         async function load() {
             const updates = await MetroAPI.getUpdates();
-            const reqs = updates.map(u => MetroAPI.parsePayment((u.channel_post || u.message)?.text)).filter(x => x);
-            document.getElementById('list').innerHTML = reqs.reverse().map(r => `
-                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl">
-                    <div class="flex justify-between font-bold">
-                        <span class="${r.TYPE==='DEPOSIT'?'text-emerald-400':'text-orange-400'}">${r.TYPE}</span>
-                        <span>${r.AMT} CASH</span>
+            const reqs = updates.map(u => {
+                const msg = u.channel_post || u.message;
+                return MetroAPI.parseData(msg?.text, msg?.date);
+            }).filter(x => x && x.type === 'PAY_REQ');
+
+            if (reqs.length === 0) {
+                listEl.innerHTML = "<div class='text-center opacity-30 italic'>Queue empty</div>";
+                return;
+            }
+
+            listEl.innerHTML = reqs.reverse().map(r => `
+                <div class="p-6 bg-slate-900 border border-white/5 rounded-2xl">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <span class="text-[10px] uppercase font-bold tracking-widest ${r.payType==='DEPOSIT'?'text-emerald-400':'text-orange-400'}">${r.payType}</span>
+                            <h3 class="text-xl font-bold">${r.amount} CASH</h3>
+                        </div>
+                        <button class="p-2 bg-white/5 rounded-lg">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>
+                        </button>
                     </div>
-                    <div class="text-xs text-slate-500 mt-2">User: ${r.USER} (ID: ${r.ID})</div>
-                    <div class="text-xs text-slate-300">Info: ${r.INFO}</div>
-                    <button class="mt-4 w-full py-2 bg-emerald-600 rounded font-bold text-xs">MARK AS PROCESSED</button>
+                    <div class="text-xs text-slate-400 space-y-1 font-mono">
+                        <div>FROM: ${r.user} (ID: ${r.id})</div>
+                        <div>INFO: ${r.info}</div>
+                    </div>
                 </div>
-            `).join('') || "No requests found.";
+            `).join('');
         }
-        load();
-        setInterval(load, 15000);
+
+        init();
     </script>
 </body>
 </html>

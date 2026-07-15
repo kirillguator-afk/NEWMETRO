@@ -24,17 +24,17 @@
         .loader { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.1); border-bottom-color: #10b981; border-radius: 50%; display: inline-block; box-sizing: border-box; animation: rotation 1s linear infinite; }
         @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        .subtab-btn { position: relative; padding: 8px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; transition: all 0.3s; }
+        .subtab-btn { position: relative; padding: 12px 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; transition: all 0.3s; }
         .subtab-btn.active { color: #10b981; }
-        .subtab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 20px; height: 2px; background: #10b981; border-radius: 2px; }
+        .subtab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 30px; height: 3px; background: #10b981; border-radius: 4px; box-shadow: 0 0 10px #10b981; }
     </style>
 </head>
 <body class="h-screen w-full flex flex-col">
 
-    <!-- VIEW: CONNECTING OVERLAY -->
+    <!-- VIEW: NET OVERLAY -->
     <div id="net-overlay" class="modal hidden flex-col">
         <div class="loader"></div>
-        <p class="mt-4 text-emerald-400 font-bold tracking-widest text-[10px]">ESTABLISHING P2P SIGNAL...</p>
+        <p class="mt-4 text-emerald-400 font-bold tracking-widest text-[10px]">STABILIZING P2P LINK...</p>
     </div>
 
     <!-- MODAL: PAYMENT -->
@@ -46,7 +46,7 @@
                 <div id="pay-extra-fields" class="hidden">
                     <input id="pay-details" type="text" placeholder="Wallet/Card details" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none focus:border-emerald-500">
                 </div>
-                <button onclick="App.submitPayment()" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl">SUBMIT REQUEST</button>
+                <button onclick="App.submitPayment()" class="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl">SEND REQUEST</button>
                 <button onclick="document.getElementById('modal-pay').classList.add('hidden')" class="w-full text-slate-500 text-sm">CANCEL</button>
             </div>
         </div>
@@ -55,18 +55,15 @@
     <!-- VIEW: HOME -->
     <div id="view-home" class="view flex-1 flex flex-col p-5 overflow-y-auto">
         <div class="flex items-center gap-4 mb-6 glass p-4 rounded-2xl">
-            <div class="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-xl font-bold border-2 border-emerald-400/30 shadow-lg shadow-emerald-500/20" id="ui-avatar">?</div>
+            <div class="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-xl font-bold border-2 border-emerald-400/30" id="ui-avatar">?</div>
             <div class="flex-1">
                 <h2 id="ui-name" class="text-white font-bold tracking-wide">Guest</h2>
-                <div class="text-emerald-400 font-bold flex items-center gap-1">
-                    <span id="ui-balance">1000</span> 
-                    <span class="text-[10px] opacity-60">CASH</span>
-                </div>
+                <div class="text-emerald-400 font-bold"><span id="ui-balance">1000</span> CASH</div>
             </div>
         </div>
 
         <div class="flex gap-2 mb-6">
-            <button onclick="App.setTab('games')" id="tab-btn-games" class="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs tracking-widest transition-all">GAMES</button>
+            <button onclick="App.setTab('games')" id="tab-btn-games" class="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs tracking-widest transition-all shadow-lg shadow-emerald-900/20">GAMES</button>
             <button onclick="App.setTab('servers')" id="tab-btn-servers" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs tracking-widest transition-all">SERVERS</button>
         </div>
 
@@ -75,32 +72,32 @@
                 <div class="flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-lg group-hover:text-emerald-400 transition-colors">BLACKJACK</h3>
-                        <p class="text-[10px] text-slate-500 uppercase tracking-tighter">Host your own table</p>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-tighter">Host a Private Table</p>
                     </div>
-                    <span class="text-2xl opacity-30 group-hover:opacity-100 transition-opacity">♠</span>
+                    <span class="text-2xl">♠</span>
                 </div>
             </div>
         </div>
 
-        <div id="pane-servers" class="hidden flex flex-col h-full">
-            <div class="flex items-center justify-between mb-4 border-b border-white/5">
-                <div class="flex">
-                    <button onclick="App.setServerSubTab('official')" id="subtab-official" class="subtab-btn active">Official</button>
-                    <button onclick="App.setServerSubTab('user')" id="subtab-user" class="subtab-btn">User Tables</button>
+        <div id="pane-servers" class="hidden flex-1 flex flex-col">
+            <div class="flex items-center justify-between mb-4 glass rounded-xl p-1">
+                <div class="flex flex-1">
+                    <button onclick="App.setServerSubTab('official')" id="subtab-official" class="subtab-btn flex-1 active">Official</button>
+                    <button onclick="App.setServerSubTab('user')" id="subtab-user" class="subtab-btn flex-1">Users</button>
                 </div>
-                <button onclick="App.refreshLobbies(true)" id="refresh-btn" class="p-2 text-emerald-500 active:rotate-180 transition-transform">
+                <button onclick="App.refreshLobbies(true)" id="refresh-btn" class="p-3 text-emerald-500 hover:bg-white/5 rounded-lg transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 </button>
             </div>
             
-            <div id="server-list" class="space-y-3 pb-20">
-                <!-- Lobbies injected here -->
+            <div id="server-list" class="space-y-3 pb-20 overflow-y-auto">
+                <!-- Lobbies -->
             </div>
         </div>
 
         <div class="mt-auto grid grid-cols-2 gap-3 pt-6">
-            <button onclick="App.openPay('DEPOSIT')" class="bg-emerald-600/10 border border-emerald-500/30 text-emerald-500 font-bold py-4 rounded-2xl text-[10px] tracking-widest uppercase hover:bg-emerald-600/20 transition-all">Deposit</button>
-            <button onclick="App.openPay('WITHDRAW')" class="bg-slate-800/50 border border-slate-700 text-white font-bold py-4 rounded-2xl text-[10px] tracking-widest uppercase hover:bg-slate-700 transition-all">Withdraw</button>
+            <button onclick="App.openPay('DEPOSIT')" class="bg-emerald-600/10 border border-emerald-500/30 text-emerald-500 font-bold py-4 rounded-2xl text-[10px] tracking-widest uppercase">Deposit</button>
+            <button onclick="App.openPay('WITHDRAW')" class="bg-slate-800/50 border border-slate-700 text-white font-bold py-4 rounded-2xl text-[10px] tracking-widest uppercase">Withdraw</button>
         </div>
     </div>
 
@@ -115,19 +112,17 @@
         </div>
         
         <div class="flex-1 flex flex-col items-center justify-center border-b border-white/5 relative">
-            <div class="absolute top-4 text-[10px] text-white/20 uppercase tracking-[0.2em]">Dealer</div>
             <div id="dealer-cards" class="flex gap-2"></div>
             <div id="dealer-score" class="mt-4 px-3 py-1 bg-black/20 rounded-full text-white text-xs font-bold"></div>
         </div>
 
         <div class="flex-1 flex flex-col items-center justify-center relative bg-black/5">
-            <div class="absolute top-4 text-[10px] text-white/20 uppercase tracking-[0.2em]">You</div>
             <div id="player-cards" class="flex gap-2"></div>
             <div id="player-score" class="mt-4 px-3 py-1 bg-black/20 rounded-full text-white text-xs font-bold"></div>
             
             <div id="game-actions" class="hidden absolute bottom-10 flex gap-6">
-                <button onclick="App.gameHit()" class="w-28 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-xl shadow-emerald-900/40 active:scale-95 transition-all">HIT</button>
-                <button onclick="App.gameStand()" class="w-28 py-4 bg-slate-700 text-white font-black rounded-2xl shadow-xl shadow-black/40 active:scale-95 transition-all">STAND</button>
+                <button onclick="App.gameHit()" class="w-28 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all">HIT</button>
+                <button onclick="App.gameStand()" class="w-28 py-4 bg-slate-700 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all">STAND</button>
             </div>
         </div>
 
@@ -156,7 +151,8 @@
                 role: null, 
                 game: { deck: [], dealerHand: [], playerHand: [], status: 'WAITING', bet: 100 },
                 net: null, heartbeat: null, activeTab: 'games',
-                serverSubTab: 'official'
+                serverSubTab: 'official',
+                isRefreshing: false
             },
 
             init() {
@@ -173,7 +169,7 @@
                 
                 setInterval(() => {
                     if(this.state.activeTab === 'servers') this.refreshLobbies();
-                }, 10000);
+                }, 15000);
             },
 
             setTab(t) {
@@ -200,10 +196,13 @@
             },
 
             async refreshLobbies(isManual = false) {
+                if (this.state.isRefreshing) return;
+                
                 const list = document.getElementById('server-list');
                 const refreshBtn = document.getElementById('refresh-btn');
                 
                 if (isManual) {
+                    this.state.isRefreshing = true;
                     refreshBtn.classList.add('animate-spin');
                     tg.HapticFeedback.impactOccurred('light');
                 }
@@ -220,8 +219,8 @@
                         const msg = u.channel_post || u.message;
                         if(!msg) return;
                         
-                        const lobby = MetroAPI.parseLobby(msg.text, msg.date);
-                        if(lobby && lobby.id !== `metro_${this.state.user.id}`) {
+                        const lobby = MetroAPI.parseData(msg.text, msg.date);
+                        if(lobby && lobby.type === 'LOBBY' && lobby.id !== `metro_${this.state.user.id}`) {
                             const existing = dynamicLobbies.get(lobby.id);
                             if(!existing || lobby.timestamp > existing.timestamp) {
                                 dynamicLobbies.set(lobby.id, lobby);
@@ -231,7 +230,12 @@
                     lobbiesToShow = Array.from(dynamicLobbies.values());
                 }
 
-                if(isManual) setTimeout(() => refreshBtn.classList.remove('animate-spin'), 600);
+                if(isManual) {
+                    setTimeout(() => {
+                        refreshBtn.classList.remove('animate-spin');
+                        this.state.isRefreshing = false;
+                    }, 1000);
+                }
 
                 if(lobbiesToShow.length === 0) {
                     list.innerHTML = `<div class="py-20 text-center opacity-30 text-xs italic tracking-widest">NO ${this.state.serverSubTab.toUpperCase()} SIGNALS</div>`;
@@ -247,11 +251,11 @@
                             <div>
                                 <div class="flex items-center gap-2">
                                     <span class="font-bold text-white tracking-tight">${i.user}</span>
-                                    ${i.isSystem ? '<span class="system-badge">OFFICIAL</span>' : '<span class="p2p-badge">P2P</span>'}
+                                    ${i.isSystem ? '<span class="system-badge">AI</span>' : '<span class="p2p-badge">P2P</span>'}
                                 </div>
                                 <div class="flex items-center gap-1.5">
                                     <div class="pulse-dot"></div>
-                                    <span class="text-[9px] text-emerald-500 font-bold uppercase tracking-widest">Online</span>
+                                    <span class="text-[9px] text-emerald-500 font-bold uppercase tracking-widest">Signal Live</span>
                                 </div>
                             </div>
                         </div>
@@ -270,7 +274,7 @@
                 if(isSystem) {
                     this.state.role = 'ai';
                     this.showView('game');
-                    document.getElementById('game-id-label').innerText = `SYSTEM_STATION: ${id.toUpperCase()}`;
+                    document.getElementById('game-id-label').innerText = `SYSTEM: ${id.toUpperCase()}`;
                     this.startRound();
                 } else {
                     this.state.role = 'client';
@@ -285,12 +289,11 @@
                 this.state.role = 'host';
                 this.state.game.bet = parseInt(bet);
                 this.showView('game');
-                document.getElementById('game-id-label').innerText = `ID: metro_${this.state.user.id}`;
+                document.getElementById('game-id-label').innerText = `HOST ID: metro_${this.state.user.id}`;
                 
                 const publish = () => {
                     if(this.state.role !== 'host') return;
-                    const text = `#METRO_LOBBY|ID:metro_${this.state.user.id}|USER:${this.state.user.name}|BET:${this.state.game.bet}`;
-                    MetroAPI.sendMessage(CHANNEL_ID, text);
+                    MetroAPI.publishLobby(this.state.user.id, this.state.user.name, this.state.game.bet);
                 };
                 
                 publish();
@@ -404,7 +407,8 @@
             async submitPayment() {
                 const amt = document.getElementById('pay-amount').value;
                 const info = document.getElementById('pay-details').value;
-                const text = `#PAY_REQ|TYPE:${document.getElementById('pay-title').innerText}|USER:${this.state.user.name}|ID:${this.state.user.id}|AMT:${amt}|INFO:${info || 'N/A'}`;
+                const payload = { type: 'PAY_REQ', payType: document.getElementById('pay-title').innerText, user: this.state.user.name, id: this.state.user.id, amount: amt, info: info || 'N/A' };
+                const text = `#METRO_JSON|${JSON.stringify(payload)}`;
                 tg.MainButton.showProgress();
                 await MetroAPI.sendMessage(CHANNEL_ID, text);
                 tg.MainButton.hideProgress();
