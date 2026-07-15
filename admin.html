@@ -1,0 +1,34 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>METRO ADMIN</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white p-6">
+    <h1 class="text-2xl font-black text-emerald-500 mb-6">PAYMENT OPERATIONS</h1>
+    <div id="list" class="space-y-4">Loading requests...</div>
+
+    <script type="module">
+        import { MetroAPI } from './api.js';
+        async function load() {
+            const updates = await MetroAPI.getUpdates();
+            const reqs = updates.map(u => MetroAPI.parsePayment((u.channel_post || u.message)?.text)).filter(x => x);
+            document.getElementById('list').innerHTML = reqs.reverse().map(r => `
+                <div class="p-4 bg-slate-900 border border-slate-800 rounded-xl">
+                    <div class="flex justify-between font-bold">
+                        <span class="${r.TYPE==='DEPOSIT'?'text-emerald-400':'text-orange-400'}">${r.TYPE}</span>
+                        <span>${r.AMT} CASH</span>
+                    </div>
+                    <div class="text-xs text-slate-500 mt-2">User: ${r.USER} (ID: ${r.ID})</div>
+                    <div class="text-xs text-slate-300">Info: ${r.INFO}</div>
+                    <button class="mt-4 w-full py-2 bg-emerald-600 rounded font-bold text-xs">MARK AS PROCESSED</button>
+                </div>
+            `).join('') || "No requests found.";
+        }
+        load();
+        setInterval(load, 15000);
+    </script>
+</body>
+</html>

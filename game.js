@@ -4,11 +4,7 @@ export const Blackjack = {
         const suits = ['♠', '♣', '♥', '♦'];
         const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
         let deck = [];
-        for (let s of suits) {
-            for (let v of values) {
-                deck.push({ suit: s, value: v });
-            }
-        }
+        suits.forEach(s => values.forEach(v => deck.push({ suit: s, value: v })));
         return this.shuffle(deck);
     },
 
@@ -23,20 +19,12 @@ export const Blackjack = {
     getScore(hand) {
         let score = 0;
         let aces = 0;
-        for (let card of hand) {
-            if (card.value === 'A') {
-                aces += 1;
-                score += 11;
-            } else if (['J', 'Q', 'K'].includes(card.value)) {
-                score += 10;
-            } else {
-                score += parseInt(card.value);
-            }
-        }
-        while (score > 21 && aces > 0) {
-            score -= 10;
-            aces -= 1;
-        }
+        hand.forEach(c => {
+            if (c.value === 'A') { aces += 1; score += 11; }
+            else if (['J', 'Q', 'K'].includes(c.value)) score += 10;
+            else score += parseInt(c.value);
+        });
+        while (score > 21 && aces > 0) { score -= 10; aces -= 1; }
         return score;
     }
 };
