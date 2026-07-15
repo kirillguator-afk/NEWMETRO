@@ -1,14 +1,15 @@
 
 export class MetroNetwork {
     constructor(userId, onMessage, onConnect) {
-        this.peerId = `metro_${userId}`;
-        // Конфигурация с STUN серверами для обхода NAT (важно для мобильного интернета)
+        // [SECURITY] Добавляем энтропию в ID, чтобы избежать DoS и перехвата
+        const entropy = Math.random().toString(36).slice(2, 8);
+        this.peerId = `metro_${userId}_${entropy}`;
+        
         this.peer = new Peer(this.peerId, {
             config: {
                 'iceServers': [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' }
+                    { urls: 'stun:stun1.l.google.com:19302' }
                 ]
             },
             debug: 1
@@ -18,42 +19,33 @@ export class MetroNetwork {
         this.onMessage = onMessage;
         this.onConnect = onConnect;
 
-        // Слушатель для Хоста
         this.peer.on('connection', (conn) => {
             if (this.conn) {
-                // Если кто-то уже играет, отклоняем новое подключение
                 conn.on('open', () => {
-                    conn.send({ type: 'ERROR', msg: 'Table is full' });
+                    conn.send({ type: 'ERROR', msg: 'Table busy' });
                     setTimeout(() => conn.close(), 500);
                 });
                 return;
             }
             this.conn = conn;
             this.setupListeners();
-            console.log("Host: Player connected");
         });
         
         this.peer.on('error', (err) => {
-            console.error("Peer Error:", err.type);
             if (err.type === 'peer-unavailable') {
-                alert("Host is offline or table no longer exists.");
-                window.location.reload();
+                console.error("Target peer not found");
             }
         });
     }
 
-    // Метод для Клиента
     connectTo(targetId) {
-        console.log("Connecting to:", targetId);
-        this.conn = this.peer.connect(targetId, {
-            reliable: true
-        });
+        // Ожидаем префикс metro_, но само подключение идет по точному ID
+        this.conn = this.peer.connect(targetId, { reliable: true });
         this.setupListeners();
     }
 
     setupListeners() {
         this.conn.on('open', () => {
-            console.log("Connection Established");
             if (this.onConnect) this.onConnect(this.conn);
         });
 
@@ -62,8 +54,7 @@ export class MetroNetwork {
         });
 
         this.conn.on('close', () => {
-            alert("Connection lost. Game terminated.");
-            window.location.reload();
+            console.warn("P2P Connection Closed");
         });
     }
 

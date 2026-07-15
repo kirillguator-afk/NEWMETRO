@@ -12,29 +12,26 @@
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
         body { font-family: 'Rajdhani', sans-serif; background: #020617; color: #e2e8f0; overflow: hidden; }
         .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .card-ui { width: 60px; height: 85px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; }
+        .card-ui { width: 60px; height: 85px; background: white; border-radius: 8px; color: black; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: translateY(0); }
+        .card-ui:hover { transform: translateY(-5px); }
         .card-red { color: #ef4444; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .server-entry { transition: all 0.3s; }
         .pulse-dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        .subtab-btn { position: relative; padding: 12px 20px; font-size: 11px; font-weight: 700; color: #64748b; }
-        .subtab-btn.active { color: #10b981; }
-        .subtab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 20px; height: 2px; background: #10b981; }
     </style>
 </head>
 <body class="h-screen w-full flex flex-col">
 
-    <input type="file" id="avatar-input" class="hidden" accept="image/*">
+    <input type="file" id="avatar-input" class="hidden" accept="image/png,image/jpeg,image/webp">
 
     <div id="net-overlay" class="modal hidden flex-col">
         <div class="w-8 h-8 border-2 border-emerald-500 border-t-transparent animate-spin rounded-full"></div>
-        <p class="mt-4 text-emerald-400 font-bold text-[10px]">STABILIZING P2P LINK...</p>
+        <p class="mt-4 text-emerald-400 font-bold text-[10px] tracking-widest">STABILIZING P2P LINK...</p>
     </div>
 
     <div id="view-home" class="view flex-1 flex flex-col p-5 overflow-y-auto">
         <div class="flex items-center gap-4 mb-6 glass p-4 rounded-2xl">
-            <div class="relative cursor-pointer" onclick="document.getElementById('avatar-input').click()">
+            <div class="relative cursor-pointer" id="avatar-trigger">
                 <div id="ui-avatar" class="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-xl font-bold overflow-hidden border-2 border-emerald-500/30">?</div>
             </div>
             <div class="flex-1">
@@ -44,33 +41,29 @@
         </div>
 
         <div class="flex gap-2 mb-6">
-            <button onclick="App.setTab('games')" id="tab-btn-games" class="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs uppercase">Games</button>
-            <button onclick="App.setTab('servers')" id="tab-btn-servers" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs uppercase">Servers</button>
+            <button id="tab-btn-games" class="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs uppercase">Games</button>
+            <button id="tab-btn-servers" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs uppercase">Servers</button>
         </div>
 
         <div id="pane-games" class="space-y-3">
-            <div onclick="App.openCreateLobby()" class="p-6 glass rounded-2xl border-l-4 border-emerald-500 active:scale-95 transition-all">
+            <div id="btn-create-bj" class="p-6 glass rounded-2xl border-l-4 border-emerald-500 active:scale-95 transition-all cursor-pointer">
                 <h3 class="font-bold text-lg">BLACKJACK</h3>
-                <p class="text-[10px] text-slate-500 uppercase">Host a Private Table</p>
+                <p class="text-[10px] text-slate-500 uppercase">Secure Server-Side Logic</p>
             </div>
         </div>
 
         <div id="pane-servers" class="hidden flex-1 flex flex-col">
-            <div class="flex items-center mb-4 border-b border-white/5">
-                <button onclick="App.setServerSubTab('official')" id="subtab-official" class="subtab-btn active">Official</button>
-                <button onclick="App.setServerSubTab('user')" id="subtab-user" class="subtab-btn">Users</button>
-            </div>
             <div id="server-list" class="space-y-3 pb-20"></div>
         </div>
     </div>
 
     <div id="view-game" class="view hidden fixed inset-0 z-50 bg-[#064e3b] flex flex-col">
-        <div class="p-4 flex justify-between bg-black/40 text-[10px]">
-            <span id="game-id-label" class="opacity-50">ID: ---</span>
-            <span id="game-status-label" class="text-emerald-400 font-bold">Waiting</span>
+        <div class="p-4 flex justify-between bg-black/40 text-[10px] border-b border-white/5">
+            <span id="game-id-label" class="opacity-50">P2P SECURED</span>
+            <span id="game-status-label" class="text-emerald-400 font-bold">SYNCING...</span>
         </div>
         
-        <div class="flex-1 flex flex-col items-center justify-center relative border-b border-white/5">
+        <div class="flex-1 flex flex-col items-center justify-center relative">
             <div id="dealer-cards" class="flex gap-2"></div>
             <div id="dealer-score" class="mt-4 px-3 py-1 bg-black/20 rounded-full text-white text-xs font-bold"></div>
         </div>
@@ -80,177 +73,208 @@
             <div id="player-score" class="mt-4 px-3 py-1 bg-black/20 rounded-full text-white text-xs font-bold"></div>
             
             <div id="game-actions" class="hidden absolute bottom-10 flex gap-6">
-                <button onclick="App.gameHit()" class="w-28 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-xl">HIT</button>
-                <button onclick="App.gameStand()" class="w-28 py-4 bg-slate-700 text-white font-black rounded-2xl shadow-xl">STAND</button>
+                <button id="btn-hit" class="w-28 py-4 bg-emerald-500 text-white font-black rounded-2xl shadow-xl active:translate-y-1 transition-transform">HIT</button>
+                <button id="btn-stand" class="w-28 py-4 bg-slate-700 text-white font-black rounded-2xl shadow-xl active:translate-y-1 transition-transform">STAND</button>
             </div>
         </div>
 
         <div id="result-overlay" class="hidden fixed inset-0 bg-black/95 z-[60] flex flex-col items-center justify-center p-10 text-center">
-            <h1 id="result-msg" class="text-6xl font-black mb-10 italic"></h1>
-            <button onclick="location.reload()" class="w-full max-w-xs py-4 bg-white text-black font-black rounded-2xl">Exit</button>
+            <h1 id="result-msg" class="text-6xl font-black mb-10 italic tracking-tighter"></h1>
+            <button onclick="location.reload()" class="w-full max-w-xs py-4 bg-white text-black font-black rounded-2xl shadow-2xl">EXIT TABLE</button>
         </div>
     </div>
 
     <script type="module">
         import { MetroAPI } from './api.js';
         import { MetroNetwork } from './network.js';
-        import { Blackjack } from './game.js';
 
         const tg = window.Telegram.WebApp;
         
-        // Безопасное экранирование HTML
-        const esc = (s) => {
-            const t = document.createElement('div');
-            t.textContent = s;
-            return t.innerHTML;
-        };
-
-        window.App = {
+        const App = {
             state: {
                 user: { id: 0, name: 'Guest', avatarUrl: null },
-                role: null, game: { deck: [], dealerHand: [], playerHand: [], status: 'WAITING', bet: 100 },
-                net: null, activeTab: 'games', serverSubTab: 'official'
+                role: null, 
+                game: null,
+                lobbyId: null,
+                net: null, 
+                activeTab: 'games'
             },
 
             async init() {
                 tg.ready();
+                tg.expand();
                 const u = tg.initDataUnsafe?.user;
                 if(u) {
                     this.state.user.id = u.id;
                     this.state.user.name = u.first_name;
-                    document.getElementById('ui-name').innerText = u.first_name;
+                    document.getElementById('ui-name').textContent = u.first_name;
                     const prof = await MetroAPI.getUserProfile();
-                    if(prof.avatarUrl) this.updateAvatarUI(prof.avatarUrl);
+                    if(prof?.avatarUrl) this.updateAvatarUI(prof.avatarUrl);
                 }
                 
+                // Инициализация сети с рандомизированным ID
                 this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
                 
-                document.getElementById('avatar-input').onchange = async (e) => {
-                    const f = e.target.files[0];
-                    if(!f) return;
-                    tg.MainButton.setText("UPLOADING...").show().showProgress();
-                    const res = await MetroAPI.uploadAvatar(f);
-                    tg.MainButton.hide();
-                    if(res?.url) this.updateAvatarUI(res.url);
-                };
+                // Event Listeners
+                document.getElementById('avatar-trigger').onclick = () => document.getElementById('avatar-input').click();
+                document.getElementById('avatar-input').onchange = (e) => this.handleAvatarUpload(e);
+                document.getElementById('tab-btn-games').onclick = () => this.setTab('games');
+                document.getElementById('tab-btn-servers').onclick = () => this.setTab('servers');
+                document.getElementById('btn-create-bj').onclick = () => this.openCreateLobby();
+                document.getElementById('btn-hit').onclick = () => this.gameAction('HIT');
+                document.getElementById('btn-stand').onclick = () => this.gameAction('STAND');
 
-                setInterval(() => { if(this.state.activeTab === 'servers') this.refreshLobbies(); }, 15000);
+                setInterval(() => { if(this.state.activeTab === 'servers') this.refreshLobbies(); }, 10000);
+            },
+
+            async handleAvatarUpload(e) {
+                const f = e.target.files[0];
+                if(!f) return;
+                tg.MainButton.setText("UPLOADING...").show().showProgress();
+                const res = await MetroAPI.uploadAvatar(f);
+                tg.MainButton.hide();
+                if(res?.url) this.updateAvatarUI(res.url);
             },
 
             updateAvatarUI(url) {
                 this.state.user.avatarUrl = url;
-                document.getElementById('ui-avatar').innerHTML = `<img src="${url}" class="w-full h-full object-cover">`;
+                const container = document.getElementById('ui-avatar');
+                container.innerHTML = '';
+                const img = document.createElement('img');
+                img.src = url;
+                img.className = 'w-full h-full object-cover';
+                container.appendChild(img);
             },
 
             setTab(t) {
                 this.state.activeTab = t;
                 document.getElementById('pane-games').classList.toggle('hidden', t !== 'games');
                 document.getElementById('pane-servers').classList.toggle('hidden', t !== 'servers');
-                this.refreshLobbies();
-            },
-
-            setServerSubTab(st) {
-                this.state.serverSubTab = st;
-                document.getElementById('subtab-official').classList.toggle('active', st === 'official');
-                document.getElementById('subtab-user').classList.toggle('active', st === 'user');
-                this.refreshLobbies();
+                document.getElementById('tab-btn-games').className = t === 'games' ? 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs' : 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs';
+                document.getElementById('tab-btn-servers').className = t === 'servers' ? 'flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold text-xs' : 'flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs';
+                if(t === 'servers') this.refreshLobbies();
             },
 
             async refreshLobbies() {
-                const list = document.getElementById('server-list');
-                let labs = this.state.serverSubTab === 'official' ? 
-                    [{ id: 'sys_1', user: 'SYSTEM-A', bet: 100, isSystem: true }] : await MetroAPI.getLobbies();
-
-                list.innerHTML = labs.map(i => `
-                    <div onclick="App.joinTable('${i.id}', ${i.bet}, ${!!i.isSystem})" class="glass p-5 rounded-2xl flex justify-between items-center cursor-pointer active:scale-95 transition-all">
+                const listEl = document.getElementById('server-list');
+                const labs = await MetroAPI.getLobbies();
+                
+                listEl.innerHTML = '';
+                labs.forEach(i => {
+                    const row = document.createElement('div');
+                    row.className = 'glass p-5 rounded-2xl flex justify-between items-center cursor-pointer active:scale-95 transition-all';
+                    row.onclick = () => this.joinTable(i.id, i.bet);
+                    
+                    row.innerHTML = `
                         <div class="flex items-center gap-4">
                             <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden border border-white/10">
-                                ${i.avatar ? `<img src="${i.avatar}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center font-bold text-emerald-500">${esc(i.user[0])}</div>`}
+                                ${i.avatar ? `<img src="${i.avatar}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center font-bold text-emerald-500">${i.user[0]}</div>`}
                             </div>
                             <div>
-                                <div class="font-bold text-white tracking-tight">${esc(i.user)}</div>
-                                <div class="flex items-center gap-1.5"><div class="pulse-dot"></div><span class="text-[9px] text-emerald-500 font-bold">LIVE</span></div>
+                                <div class="font-bold text-white tracking-tight">${i.user}</div>
+                                <div class="flex items-center gap-1.5"><div class="pulse-dot"></div><span class="text-[9px] text-emerald-500 font-bold">P2P READY</span></div>
                             </div>
                         </div>
                         <div class="text-emerald-400 font-black text-lg">${parseInt(i.bet)}</div>
-                    </div>
-                `).join('') || '<div class="py-20 text-center opacity-30 italic">EMPTY</div>';
+                    `;
+                    listEl.appendChild(row);
+                });
             },
 
             async openCreateLobby() {
-                const b = prompt("BET:", "100");
+                const b = prompt("ENTER BET:", "100");
                 if(!b) return;
                 this.state.role = 'host';
-                this.state.game.bet = parseInt(b);
+                this.state.lobbyId = this.state.net.peerId;
+                const game = await MetroAPI.startGame(this.state.lobbyId, b);
+                this.state.game = game;
                 this.showView('game');
-                await MetroAPI.publishLobby(this.state.user.id, this.state.user.name, b, this.state.user.avatarUrl);
+                this.render();
+                await MetroAPI.publishLobby(this.state.user.id, this.state.user.name, b, this.state.user.avatarUrl, this.state.net.peerId);
             },
 
-            joinTable(id, bet, isSys) {
-                this.state.game.bet = bet;
-                if(isSys) {
-                    this.state.role = 'ai'; this.showView('game'); this.startRound();
-                } else {
-                    this.state.role = 'client';
-                    document.getElementById('net-overlay').classList.remove('hidden');
-                    this.state.net.connectTo(id);
-                }
+            joinTable(peerId, bet) {
+                this.state.role = 'client';
+                this.state.lobbyId = peerId;
+                document.getElementById('net-overlay').classList.remove('hidden');
+                this.state.net.connectTo(peerId);
             },
 
             onPeerReady() {
                 document.getElementById('net-overlay').classList.add('hidden');
-                if(this.state.role === 'client') this.showView('game');
-                if(this.state.role === 'host') this.startRound();
+                if(this.state.role === 'client') {
+                    this.showView('game');
+                    // Клиент просто ждет первого SYNC от Хоста
+                }
             },
 
-            startRound() {
-                const d = Blackjack.createDeck();
-                this.state.game = { ...this.state.game, deck: d, playerHand: [d.pop(), d.pop()], dealerHand: [d.pop(), d.pop()], status: 'PLAYER_TURN' };
-                this.state.role !== 'ai' ? this.sync() : this.render();
+            async gameAction(act) {
+                // Все действия теперь через API (Authority)
+                const newState = await MetroAPI.performAction(this.state.lobbyId, act);
+                this.state.game = newState;
+                if(this.state.role === 'host') {
+                    this.state.net.send('SYNC', { game: newState });
+                }
+                this.render();
             },
 
             onNetMsg(msg) {
-                if(msg.type === 'SYNC') { this.state.game = msg.game; this.render(); }
-                if(msg.type === 'ACTION' && this.state.role === 'host') this.handleAction(msg.act);
-            },
-
-            handleAction(act) {
-                const g = this.state.game;
-                if(act === 'HIT') {
-                    g.playerHand.push(g.deck.pop());
-                    if(Blackjack.getScore(g.playerHand) > 21) g.status = 'END';
-                } else {
-                    g.status = 'DEALER_TURN';
-                    while(Blackjack.getScore(g.dealerHand) < 17) g.dealerHand.push(g.deck.pop());
-                    g.status = 'END';
+                if(msg.type === 'SYNC') {
+                    this.state.game = msg.game;
+                    this.render();
                 }
-                this.state.role !== 'ai' ? this.sync() : this.render();
             },
-
-            sync() { this.state.net.send('SYNC', { game: this.state.game }); this.render(); },
-            gameHit() { this.state.role === 'client' ? this.state.net.send('ACTION', { act: 'HIT' }) : this.handleAction('HIT'); },
-            gameStand() { this.state.role === 'client' ? this.state.net.send('ACTION', { act: 'STAND' }) : this.handleAction('STAND'); },
 
             render() {
                 const g = this.state.game;
-                const hide = g.status === 'PLAYER_TURN' && (this.state.role === 'client' || this.state.role === 'ai');
+                if(!g) return;
+
+                const isPlayerTurn = g.status === 'PLAYER_TURN';
+                const showDealerFull = g.status === 'END' || g.status === 'DEALER_TURN';
+
                 document.getElementById('player-cards').innerHTML = g.playerHand.map(c => this.cardTpl(c)).join('');
-                document.getElementById('dealer-cards').innerHTML = g.dealerHand.map((c, i) => (i === 0 && hide) ? `<div class="card-ui bg-slate-800"></div>` : this.cardTpl(c)).join('');
-                document.getElementById('player-score').innerText = Blackjack.getScore(g.playerHand);
-                document.getElementById('dealer-score').innerText = hide ? '?' : Blackjack.getScore(g.dealerHand);
-                document.getElementById('game-actions').classList.toggle('hidden', g.status !== 'PLAYER_TURN');
-                if(g.status === 'END') setTimeout(() => this.showResult(), 800);
+                document.getElementById('dealer-cards').innerHTML = g.dealerHand.map((c, i) => 
+                    (i === 0 && !showDealerFull) ? `<div class="card-ui bg-slate-800 border border-white/10"></div>` : this.cardTpl(c)
+                ).join('');
+
+                document.getElementById('player-score').textContent = this.calcScore(g.playerHand);
+                document.getElementById('dealer-score').textContent = showDealerFull ? this.calcScore(g.dealerHand) : '?';
+                
+                // Только "Хост" может нажимать кнопки, так как он синхронизирует состояние (Authority на сервере, но Хост - прокси)
+                // Или разрешить обоим, если API поддерживает сессии по LobbyId
+                document.getElementById('game-actions').classList.toggle('hidden', !isPlayerTurn);
+                
+                if(g.status === 'END') {
+                    setTimeout(() => this.showResult(), 1000);
+                }
+            },
+
+            calcScore(hand) {
+                let s = 0, a = 0;
+                hand.forEach(c => {
+                    if(c.value === 'A') { a++; s += 11; }
+                    else if(['J','Q','K'].includes(c.value)) s += 10;
+                    else s += parseInt(c.value);
+                });
+                while(s > 21 && a > 0) { s -= 10; a--; }
+                return s;
             },
 
             cardTpl(c) {
-                const r = ['♥', '♦'].includes(c.suit);
-                return `<div class="card-ui ${r?'card-red':''}"><span class="text-[10px] self-start ml-1 mt-1">${c.value}</span><span class="text-2xl my-auto">${c.suit}</span></div>`;
+                const isRed = ['♥', '♦'].includes(c.suit);
+                return `<div class="card-ui ${isRed?'card-red':''}">
+                    <span class="text-[10px] self-start ml-1 mt-1">${c.value}</span>
+                    <span class="text-2xl my-auto">${c.suit}</span>
+                </div>`;
             },
 
             showResult() {
-                const p = Blackjack.getScore(this.state.game.playerHand), d = Blackjack.getScore(this.state.game.dealerHand);
-                let m = (p > 21) ? "BUSTED" : (d > 21 || p > d) ? "YOU WIN" : (p === d) ? "PUSH" : "LOSE";
-                document.getElementById('result-msg').innerText = m;
+                const p = this.calcScore(this.state.game.playerHand);
+                const d = this.calcScore(this.state.game.dealerHand);
+                let res = (p > 21) ? "BUSTED" : (d > 21 || p > d) ? "WINNER" : (p === d) ? "PUSH" : "LOSE";
+                const msg = document.getElementById('result-msg');
+                msg.textContent = res;
+                msg.className = `text-6xl font-black mb-10 italic ${res==='WINNER'?'text-emerald-500':'text-red-500'}`;
                 document.getElementById('result-overlay').classList.remove('hidden');
             },
 

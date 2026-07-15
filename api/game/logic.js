@@ -1,22 +1,17 @@
 
-export const Blackjack = {
+/**
+ * Server-Side Game Logic (Source of Truth)
+ */
+export const BlackjackEngine = {
     createDeck() {
         const suits = ['♠', '♣', '♥', '♦'];
         const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
         let deck = [];
         suits.forEach(s => values.forEach(v => deck.push({ suit: s, value: v })));
-        return this.shuffle(deck);
-    },
-
-    /**
-     * Криптографически стойкое перемешивание Фишера-Йейтса
-     */
-    shuffle(deck) {
-        const randomValues = new Uint32Array(deck.length);
-        window.crypto.getRandomValues(randomValues);
         
+        // Fisher-Yates Shuffle
         for (let i = deck.length - 1; i > 0; i--) {
-            const j = randomValues[i] % (i + 1);
+            const j = Math.floor(Math.random() * (i + 1));
             [deck[i], deck[j]] = [deck[j], deck[i]];
         }
         return deck;
