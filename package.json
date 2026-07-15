@@ -1,8 +1,8 @@
 
 {
   "name": "metro-cash-twa",
-  "version": "1.8.0",
-  "description": "Blackjack P2P TWA - Recovery Edition",
+  "version": "1.9.0",
+  "description": "Blackjack P2P TWA - Production Beta",
   "main": "api/lobbies.js",
   "type": "module",
   "dependencies": {

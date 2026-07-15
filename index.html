@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>METRO CASH</title>
+    <title>METRO BLACKJACK</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,19 +17,20 @@
         .nav-item { transition: all 0.3s; opacity: 0.4; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
         .nav-item.active { opacity: 1; color: var(--accent); transform: translateY(-2px); }
         .card-ui { width: 42px; height: 60px; background: #fff; border-radius: 6px; color: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .card-red { color: #ef4444; }
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .view-content { height: calc(100vh - 150px); overflow-y: auto; padding: 20px; }
         #view-game { position: fixed; inset: 0; z-index: 500; background: #020617; transition: transform 0.4s ease; transform: translateY(100%); pointer-events: none; }
         #view-game.active { transform: translateY(0); pointer-events: all; }
-        .turn-glow { animation: glow 1.5s infinite alternate; border: 1px solid var(--accent); }
-        @keyframes glow { from { box-shadow: 0 0 5px var(--accent); } to { box-shadow: 0 0 20px var(--accent); } }
+        .turn-glow { animation: glow 1.5s infinite alternate; box-shadow: 0 0 15px var(--accent); border: 1px solid var(--accent); }
+        @keyframes glow { from { opacity: 0.8; } to { opacity: 1; } }
     </style>
 </head>
 <body class="flex flex-col">
 
     <div id="boot-overlay" class="modal flex flex-col">
-        <div id="boot-spinner" class="w-12 h-12 border-4 border-emerald-500 border-t-transparent animate-spin rounded-full mb-6"></div>
-        <div id="boot-text" class="font-cyber text-[10px] tracking-widest text-emerald-400 text-center uppercase">ESTABLISHING NODE LINK...</div>
+        <div id="boot-spinner" class="w-10 h-10 border-4 border-emerald-500 border-t-transparent animate-spin rounded-full mb-6"></div>
+        <div id="boot-text" class="font-cyber text-[9px] tracking-widest text-emerald-400 text-center">CONNECTING TO NODE...</div>
     </div>
 
     <div class="p-5 flex justify-between items-center z-10 shrink-0">
@@ -41,61 +42,68 @@
     </div>
 
     <div class="flex-1 relative overflow-hidden">
+        <!-- HOME -->
         <div id="view-home" class="view-content">
             <div class="p-8 glass rounded-3xl text-center space-y-4 border-l-4 border-emerald-500">
-                <h1 class="font-cyber text-lg">Challenge The Node</h1>
-                <button id="btn-create-bj" class="w-full py-4 bg-emerald-600 text-white font-cyber text-[10px] rounded-xl">Host Table</button>
+                <h1 class="font-cyber text-lg text-white">Cyber Table</h1>
+                <button id="btn-create-bj" class="w-full py-4 bg-emerald-600 text-white font-cyber text-[10px] rounded-xl active:scale-95">HOST NODE</button>
             </div>
             <div class="grid grid-cols-2 gap-4 mt-6">
                 <div class="glass p-5 rounded-2xl">
-                    <div class="text-[8px] text-slate-500 font-cyber mb-1">Wins</div>
+                    <div class="text-[7px] text-slate-500 font-cyber mb-1">Score</div>
                     <div id="stat-wins" class="text-xl font-bold">0</div>
                 </div>
-                <div class="glass p-5 rounded-2xl">
-                    <div class="text-[8px] text-slate-500 font-cyber mb-1">Games</div>
-                    <div id="stat-games" class="text-xl font-bold">0</div>
+                <div id="nav-bio-btn" onclick="App.navigate('profile')" class="glass p-5 rounded-2xl cursor-pointer">
+                    <div class="text-[7px] text-slate-500 font-cyber mb-1">Profile</div>
+                    <div class="text-xs font-bold text-emerald-400">VIEW BIO</div>
                 </div>
             </div>
         </div>
 
-        <div id="view-servers" class="view-content hidden"><div id="server-list" class="space-y-4"></div></div>
+        <!-- SERVERS -->
+        <div id="view-servers" class="view-content hidden"><div id="server-list" class="space-y-4 pb-20"></div></div>
+        <!-- RANK -->
         <div id="view-rank" class="view-content hidden"><div id="leaderboard-list" class="space-y-2"></div></div>
+        <!-- BIO -->
         <div id="view-profile" class="view-content hidden">
             <div class="flex flex-col items-center gap-4 mb-8">
                 <div id="profile-avatar" class="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center font-black text-2xl">?</div>
                 <div id="profile-name" class="font-cyber text-sm text-center">Runner</div>
             </div>
-            <button onclick="location.reload()" class="w-full py-4 glass rounded-xl font-cyber text-[9px] text-emerald-500">REBOOT APP</button>
+            <button class="w-full py-4 glass rounded-xl font-cyber text-[9px] text-emerald-500">DEPOSIT</button>
         </div>
 
+        <!-- GAME OVERLAY -->
         <div id="view-game" class="flex flex-col">
             <div class="p-4 border-b border-white/5 flex justify-between items-center glass">
                 <div id="game-status" class="text-[8px] font-cyber text-emerald-400">LINKED</div>
-                <button onclick="location.reload()" class="text-[8px] font-cyber text-rose-500">ABORT</button>
+                <button onclick="location.reload()" class="text-[8px] font-cyber text-rose-500">EXIT</button>
             </div>
             <div class="flex-1 flex flex-col justify-around p-4">
                 <div class="flex flex-col items-center">
-                    <div id="dealer-hand" class="flex gap-1"></div>
-                    <div id="dealer-score" class="mt-2 text-[10px] font-bold text-slate-500 uppercase">Dealer: ?</div>
+                    <div id="dealer-hand" class="flex gap-2"></div>
+                    <div id="dealer-score" class="mt-4 px-4 py-1 glass rounded-full text-[9px] font-bold text-slate-500">Dealer: ?</div>
                 </div>
                 <div class="grid grid-cols-2 gap-4 h-56">
                     <div id="host-zone" class="glass rounded-2xl p-4 flex flex-col items-center justify-between">
+                        <div id="host-name-tag" class="text-[7px] font-cyber opacity-30">HOST</div>
                         <div id="host-hand" class="flex flex-wrap justify-center gap-1"></div>
                         <div id="host-score" class="font-bold text-xs text-emerald-400">0</div>
                     </div>
                     <div id="guest-zone" class="glass rounded-2xl p-4 flex flex-col items-center justify-between">
+                        <div id="guest-name-tag" class="text-[7px] font-cyber opacity-30">GUEST</div>
                         <div id="guest-hand" class="flex flex-wrap justify-center gap-1"></div>
                         <div id="guest-score" class="font-bold text-xs text-emerald-400">0</div>
                     </div>
                 </div>
                 <div id="game-actions" class="flex gap-4">
-                    <button id="btn-hit" class="flex-1 py-5 bg-emerald-600 rounded-xl font-cyber text-[10px]">HIT</button>
-                    <button id="btn-stand" class="flex-1 py-5 bg-slate-800 rounded-xl font-cyber text-[10px]">STAND</button>
+                    <button id="btn-hit" class="flex-1 py-5 bg-emerald-600 rounded-xl font-cyber text-[10px] active:scale-95">HIT</button>
+                    <button id="btn-stand" class="flex-1 py-5 bg-slate-800 rounded-xl font-cyber text-[10px] active:scale-95">STAND</button>
                 </div>
             </div>
             <div id="result-overlay" class="hidden absolute inset-0 glass z-[600] flex flex-col items-center justify-center p-10 text-center">
                 <div id="result-title" class="font-cyber text-4xl mb-8 italic"></div>
-                <button onclick="location.reload()" class="w-full py-4 bg-white text-black font-cyber text-[10px] rounded-xl font-bold">RETURN</button>
+                <button onclick="location.reload()" class="w-full py-4 bg-white text-black font-cyber text-[10px] rounded-xl font-bold">CONFIRM</button>
             </div>
         </div>
     </div>
@@ -114,15 +122,12 @@
 
         const App = {
             state: { user: null, game: null, lobbyId: null, isProcessing: false },
-            esc(s) { if(!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; },
 
             async init() {
                 tg.ready(); tg.expand();
-                tg.headerColor = '#020617';
-                
                 if(!tg.initData) {
                     document.getElementById('boot-spinner').classList.add('hidden');
-                    document.getElementById('boot-text').innerHTML = `<span class="text-rose-500">AUTH ERROR</span><br><span class="text-[8px] text-white opacity-50">OPEN VIA TELEGRAM BOT</span>`;
+                    document.getElementById('boot-text').textContent = "OPEN VIA TELEGRAM BOT";
                     return;
                 }
 
@@ -130,24 +135,19 @@
                     const data = await MetroAPI.getProfile();
                     this.state.user = data;
                     this.updateUIProfile(data);
-                    
-                    this.state.net = new MetroNetwork(this.state.user.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
-                    
+                    this.state.net = new MetroNetwork(data.id, (d) => this.onNetMsg(d), () => this.onPeerReady());
                     document.getElementById('boot-overlay').classList.add('hidden');
                     this.setupListeners();
                 } catch (e) {
-                    console.error("Init Error:", e);
-                    if(e.message === "SESSION_EXPIRED") {
-                        tg.showAlert("Matrix Session Expired. Re-opening...", () => location.reload());
-                    } else {
-                        tg.showAlert("Sync Error: " + e.message);
-                    }
+                    if(e.message === "SESSION_EXPIRED") location.reload();
+                    else tg.showAlert("Sync Failed: " + e.message);
                 }
             },
 
             updateUIProfile(data) {
                 document.getElementById('top-balance').textContent = data.balance.toLocaleString();
                 document.getElementById('profile-name').textContent = data.name;
+                document.getElementById('stat-wins').textContent = data.stats.wins;
             },
 
             setupListeners() {
@@ -165,6 +165,7 @@
                 document.getElementById(`nav-${tab}`).classList.add('active');
                 if (tab === 'servers') this.refreshLobbies();
                 if (tab === 'rank') this.loadLeaderboard();
+                if (tab === 'profile') MetroAPI.getProfile().then(d => this.updateUIProfile(d));
             },
 
             async refreshLobbies() {
@@ -172,8 +173,17 @@
                 const frag = document.createDocumentFragment();
                 labs.forEach(l => {
                     const row = document.createElement('div');
-                    row.className = 'glass p-6 rounded-3xl flex justify-between items-center active:scale-95 transition-all';
-                    row.innerHTML = `<div><div class="font-bold text-sm">${this.esc(l.user)}</div><div class="text-[8px] text-slate-500 uppercase">Node Available</div></div><div class="text-emerald-500 font-black">${l.bet} C</div>`;
+                    row.className = 'glass p-6 rounded-3xl flex justify-between items-center active:scale-95';
+                    const left = document.createElement('div');
+                    const name = document.createElement('div');
+                    name.className = 'font-bold text-sm';
+                    name.textContent = l.user; // Safe textContent
+                    left.appendChild(name);
+                    row.appendChild(left);
+                    const bet = document.createElement('div');
+                    bet.className = 'text-emerald-500 font-black';
+                    bet.textContent = l.bet + " C";
+                    row.appendChild(bet);
                     row.onclick = () => this.joinTable(l.id);
                     frag.appendChild(row);
                 });
@@ -186,15 +196,15 @@
                 users.forEach((u, i) => {
                     const row = document.createElement('div');
                     row.className = 'glass p-4 rounded-xl flex justify-between items-center';
-                    row.innerHTML = `<div class="flex items-center gap-3"><span class="text-[8px] opacity-30">#${i+1}</span><span class="font-bold text-xs">${this.esc(u.name)}</span></div><div class="text-emerald-400 font-black text-xs">${u.wins} W</div>`;
+                    row.innerHTML = `<div class="flex items-center gap-3"><span class="text-[8px] opacity-30">#${i+1}</span><span class="font-bold text-xs name-span"></span></div><div class="text-emerald-400 font-black text-xs">${u.wins} W</div>`;
+                    row.querySelector('.name-span').textContent = u.name;
                     frag.appendChild(row);
                 });
                 document.getElementById('leaderboard-list').replaceChildren(frag);
             },
 
             async openCreateLobby() {
-                const b = prompt("Stake Amount (min 10):", "100"); 
-                if(!b || parseInt(b) < 10) return;
+                const b = prompt("STAKE:", "100"); if(!b) return;
                 this.state.lobbyId = this.state.net.peerId;
                 try {
                     const game = await MetroAPI.startGame(this.state.lobbyId, b);
@@ -258,6 +268,9 @@
                 const showD = g.status === 'END' || g.status === 'DEALER_TURN';
                 this.drawCards('dealer-hand', 'dealer-score', g.dealerHand, g.dealerScore, !showD);
                 
+                document.getElementById('host-zone').className = `glass rounded-2xl p-4 flex flex-col items-center justify-between ${g.status === 'HOST_TURN' ? 'turn-glow' : ''}`;
+                document.getElementById('guest-zone').className = `glass rounded-2xl p-4 flex flex-col items-center justify-between ${g.status === 'GUEST_TURN' ? 'turn-glow' : ''}`;
+
                 const me = g.myRole;
                 const myTurn = (me === 'host' && g.status === 'HOST_TURN') || (me === 'guest' && g.status === 'GUEST_TURN');
                 document.getElementById('game-actions').style.opacity = myTurn ? '1' : '0.2';
@@ -267,9 +280,7 @@
                     const dS = typeof g.dealerScore === 'number' ? g.dealerScore : 0;
                     let res = (myS > 21) ? "BUSTED" : (dS > 21 || myS > dS) ? "WINNER" : (myS === dS) ? "PUSH" : "LOSE";
                     document.getElementById('result-title').textContent = res;
-                    document.getElementById('result-title').className = `font-cyber text-4xl mb-8 italic ${res === 'WINNER' ? 'text-emerald-500' : 'text-rose-500'}`;
                     document.getElementById('result-overlay').classList.remove('hidden');
-                    MetroAPI.getProfile().then(d => this.updateUIProfile(d));
                 }
             },
 
@@ -282,7 +293,7 @@
                     else {
                         const isRed = ['♥', '♦'].includes(c.suit);
                         card.className = `card-ui ${isRed ? 'card-red' : ''}`;
-                        card.innerHTML = `<span class="absolute top-1 left-1">${this.esc(c.value)}</span><span class="text-lg">${this.esc(c.suit)}</span>`;
+                        card.innerHTML = `<span class="absolute top-1 left-1">${c.value}</span><span class="text-lg">${c.suit}</span>`;
                     }
                     frag.appendChild(card);
                 });
